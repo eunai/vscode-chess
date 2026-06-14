@@ -1,0 +1,68 @@
+{
+  "name": "vscode-chess",
+  "displayName": "VS Code Chess",
+  "description": "Monitors Chess.com Daily games and notifies you when it is your turn to move.",
+  "version": "0.2.0",
+  "publisher": "eunai",
+  "license": "GPL-3.0-or-later",
+  "engines": {
+    "vscode": "^1.90.0"
+  },
+  "categories": [
+    "Other"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "contributes": {
+    "configuration": {
+      "title": "VS Code Chess",
+      "properties": {
+        "vscodeChess.username": {
+          "type": "string",
+          "default": "",
+          "scope": "application",
+          "description": "Your Chess.com username."
+        }
+      }
+    },
+    "commands": [
+      {
+        "command": "vscodeChess.openMostUrgent",
+        "title": "Open Most Urgent Daily Game",
+        "category": "Chess"
+      }
+    ]
+  },
+  "scripts": {
+    "lint": "eslint .",
+    "format:check": "prettier --check .",
+    "typecheck": "tsc --noEmit -p tsconfig.host.json",
+    "test:unit": "mocha",
+    "pretest:integration": "npm run build && tsc -p tsconfig.test.json",
+    "test:integration": "vscode-test",
+    "test": "npm run test:unit && npm run test:integration",
+    "build": "node esbuild.js",
+    "vscode:prepublish": "node esbuild.js --minify"
+  },
+  "overrides": {
+    "serialize-javascript": "^7.0.5"
+  },
+  "devDependencies": {
+    "@total-typescript/tsconfig": "^1.0.4",
+    "@types/mocha": "^10.0.10",
+    "@types/node": "^20.17.0",
+    "@types/vscode": "1.90.0",
+    "@vscode/test-cli": "^0.0.12",
+    "@vscode/test-electron": "^3.0.0",
+    "esbuild": "^0.28.1",
+    "eslint": "^9.29.0",
+    "eslint-config-prettier": "^10.1.5",
+    "mocha": "^10.8.2",
+    "prettier": "^3.5.3",
+    "tsx": "^4.19.4",
+    "typescript": "^5.8.3",
+    "typescript-eslint": "^8.35.0"
+  }
+}

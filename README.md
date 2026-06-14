@@ -1,13 +1,15 @@
 # VS Code Chess
 
-![version: 0.1.0](https://img.shields.io/badge/version-0.1.0-blue?style=flat-square) ![status: in development](https://img.shields.io/badge/status-in%20development-yellow?style=flat-square) ![visibility: public](https://img.shields.io/badge/visibility-public-brightgreen?style=flat-square)
+![version: 0.2.0](https://img.shields.io/badge/version-0.2.0-blue?style=flat-square) ![status: in development](https://img.shields.io/badge/status-in%20development-yellow?style=flat-square) ![visibility: public](https://img.shields.io/badge/visibility-public-brightgreen?style=flat-square)
 
 A VS Code extension that monitors a single player's [Chess.com](https://www.chess.com)
 Daily (correspondence) games and calmly signals when it is their turn to move, with a
 link to open the most urgent game in the browser.
 
-> **Status:** Early development (`0.1.0`) — not yet implemented or published to the
-> Marketplace. The behavior described below is the intended 1.0 design.
+> **Status:** Early development (`0.2.0`). The 0.2.0 MVP is implemented — the
+> status-bar **Turn Count** and one-click open are working — but the extension is
+> not yet published to the Marketplace. The sidebar view and rendered boards
+> described below are the intended 1.0 design and are not in 0.2.0 yet.
 
 ## Features
 
@@ -31,9 +33,15 @@ scope.
 
 ## Installation
 
-Not yet released. Once published it will be installable from the VS Code Marketplace.
-Until then, the extension can be run from source (build tooling is not yet in the
-repository).
+Not yet on the VS Code Marketplace. Until then, run it from source:
+
+```sh
+npm install
+npm run build      # bundle the extension host into dist/
+```
+
+Then open the repository in VS Code and press <kbd>F5</kbd> to launch an Extension
+Development Host with the extension loaded.
 
 ## Usage
 
@@ -44,11 +52,13 @@ repository).
    "vscodeChess.username": "your-chesscom-username"
    ```
 
-2. Open the VS Code Chess view from the activity bar.
+Once a username is set, the extension begins monitoring automatically. When one or
+more Daily games await your move, a **Turn Count** appears in the status bar with the
+count; click it to open the most urgent game (soonest move deadline) in your browser.
+When no game awaits your move, the status bar stays empty.
 
-Once a username is set, the extension begins monitoring. When one or more Daily games
-await your move, the status bar shows the count and the in-view turn notice surfaces a
-button to open the most urgent game.
+The in-sidebar view with rendered boards is part of the later 1.0 design and is not in
+this release.
 
 ## Versioning
 

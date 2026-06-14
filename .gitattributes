@@ -1,0 +1,28 @@
+# Normalize line endings: store text as LF, check out LF on every platform.
+# Makes Prettier (endOfLine: lf) and the build deterministic regardless of a
+# contributor's core.autocrlf setting.
+* text=auto eol=lf
+
+# Explicit text types (belt-and-suspenders for the files we ship/build).
+*.ts      text eol=lf
+*.js      text eol=lf
+*.mjs     text eol=lf
+*.cjs     text eol=lf
+*.json    text eol=lf
+*.jsonc   text eol=lf
+*.md      text eol=lf
+*.yml     text eol=lf
+*.yaml    text eol=lf
+*.sh      text eol=lf
+*.prettierrc      text eol=lf
+*.prettierignore  text eol=lf
+
+# Binaries — never normalize.
+*.vsix    binary
+*.png     binary
+*.jpg     binary
+*.jpeg    binary
+*.gif     binary
+*.ico     binary
+*.woff    binary
+*.woff2   binary

@@ -1,0 +1,23 @@
+{
+  "extends": "@total-typescript/tsconfig/tsc/no-dom/app",
+  "compilerOptions": {
+    "outDir": "out",
+    "rootDir": "src",
+    "module": "CommonJS",
+    "moduleResolution": "node",
+    "verbatimModuleSyntax": false,
+    "resolveJsonModule": true,
+    "sourceMap": true,
+    "types": ["node", "mocha", "vscode"]
+  },
+  "include": [
+    "src/extension.ts",
+    "src/poller/**/*.ts",
+    "src/turn/**/*.ts",
+    "src/ui/**/*.ts",
+    "src/commands/**/*.ts",
+    "src/config/**/*.ts",
+    "src/test/**/*.ts"
+  ],
+  "exclude": ["src/poller/**/*.test.ts", "src/turn/**/*.test.ts"]
+}

@@ -1,0 +1,19 @@
+{
+  "games": [
+    {
+      "url": "https://www.chess.com/game/daily/749532278",
+      "move_by": 1718573923,
+      "pgn": "[Event \"Let's Play!\"]\n[Site \"Chess.com\"]\n[Date \"2024.06.13\"]\n[Round \"-\"]\n[White \"playerone\"]\n[Black \"playertwo\"]\n[Result \"*\"]\n[TimeControl \"1/86400\"]\n[EndTime \"?\"]\n[Termination \"playerone vs playertwo\"]\n\n1. e4 *",
+      "time_control": "1/86400",
+      "end_time": null,
+      "rated": true,
+      "turn": "white",
+      "start_time": 1718400000,
+      "time_class": "daily",
+      "rules": "chess",
+      "white": "https://api.chess.com/pub/player/playerone",
+      "black": "https://api.chess.com/pub/player/playertwo",
+      "fen": "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"
+    }
+  ]
+}

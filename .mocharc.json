@@ -1,0 +1,6 @@
+{
+  "spec": "src/**/*.test.ts",
+  "ignore": "src/test/**",
+  "require": ["tsx/cjs"],
+  "timeout": 5000
+}
