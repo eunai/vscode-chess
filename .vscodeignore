@@ -1,0 +1,46 @@
+# .vscodeignore — files excluded from the packaged .vsix.
+# The extension ships only the esbuild bundle (dist/) + the manifest + README/
+# CHANGELOG/LICENSE. node_modules is excluded entirely via `vsce package
+# --no-dependencies` (the extension has no runtime dependencies yet).
+
+# --- source & build inputs (bundled into dist/ by esbuild) ---
+src/**
+test/**
+out/**
+**/*.ts
+**/*.map
+tsconfig*.json
+esbuild.js
+
+# --- tooling / config not needed at runtime ---
+eslint.config.mjs
+.prettierrc
+.prettierignore
+.mocharc.json
+.vscode-test.mjs
+.vscode-test/**
+.vscode/**
+package-lock.json
+.gitignore
+.gitattributes
+
+# --- defensive boundary tripwire -------------------------------------------
+# Absent in the public repo (Model A — ADR 0003), so these match nothing there;
+# kept as a second backstop against an accidental `vsce package` run from the
+# private source-of-truth repo. Mirrors the deny list in .publish/manifest.yml,
+# which is the real lock.
+**/.internal/**
+**/*.internal.*
+AGENTS.md
+CLAUDE.md
+.claude/**
+.publish/**
+**/.env*
+**/*.key
+**/*.pem
+**/*.p12
+**/*.pfx
+**/id_rsa
+**/id_rsa.*
+**/*.secret.*
+**/*.vsix

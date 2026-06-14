@@ -1,15 +1,15 @@
 # VS Code Chess
 
-![version: 0.2.0](https://img.shields.io/badge/version-0.2.0-blue?style=flat-square) ![status: in development](https://img.shields.io/badge/status-in%20development-yellow?style=flat-square) ![visibility: public](https://img.shields.io/badge/visibility-public-brightgreen?style=flat-square)
+![version: 0.2.0](https://img.shields.io/badge/version-0.2.0-blue?style=flat-square) ![status: active](https://img.shields.io/badge/status-active-brightgreen?style=flat-square) ![visibility: public](https://img.shields.io/badge/visibility-public-brightgreen?style=flat-square)
 
 A VS Code extension that monitors a single player's [Chess.com](https://www.chess.com)
 Daily (correspondence) games and calmly signals when it is their turn to move, with a
 link to open the most urgent game in the browser.
 
-> **Status:** Early development (`0.2.0`). The 0.2.0 MVP is implemented — the
-> status-bar **Turn Count** and one-click open are working — but the extension is
-> not yet published to the Marketplace. The sidebar view and rendered boards
-> described below are the intended 1.0 design and are not in 0.2.0 yet.
+> **Status:** Active (`0.2.0`) — the first release, available on the VS Code
+> Marketplace. It ships the always-visible signal: a status-bar **Turn Count**
+> with one-click open. The sidebar view and rendered boards described below are
+> landing in 0.3.0 and are not in this release yet.
 
 ## Features
 
@@ -33,7 +33,15 @@ scope.
 
 ## Installation
 
-Not yet on the VS Code Marketplace. Until then, run it from source:
+Install from the
+[VS Code Marketplace](https://marketplace.visualstudio.com/items?itemName=eunai.vscode-chess),
+search **VS Code Chess** in the Extensions view, or run:
+
+```sh
+code --install-extension eunai.vscode-chess
+```
+
+### From source
 
 ```sh
 npm install
@@ -59,6 +67,17 @@ When no game awaits your move, the status bar stays empty.
 
 The in-sidebar view with rendered boards is part of the later 1.0 design and is not in
 this release.
+
+## Roadmap
+
+The first release (`0.2.0`) is the always-visible status-bar **Turn Count**. Planned
+from here:
+
+- **0.3.0** — an in-sidebar view rendering a board per Daily game.
+- **0.4.0** — the richer in-sidebar Turn Notice.
+- **0.5.0** — calm handling of network failures and rate limits.
+
+_Preliminary and subject to change while on `0.x`._
 
 ## Versioning
 

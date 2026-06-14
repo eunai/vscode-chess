@@ -5,12 +5,32 @@
   "version": "0.2.0",
   "publisher": "eunai",
   "license": "GPL-3.0-or-later",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/eunai/vscode-chess.git"
+  },
+  "bugs": {
+    "url": "https://github.com/eunai/vscode-chess/issues"
+  },
+  "homepage": "https://github.com/eunai/vscode-chess#readme",
   "engines": {
     "vscode": "^1.90.0"
   },
   "categories": [
     "Other"
   ],
+  "keywords": [
+    "chess",
+    "chess.com",
+    "correspondence",
+    "daily games",
+    "turn notification"
+  ],
+  "galleryBanner": {
+    "color": "#2c2b29",
+    "theme": "dark"
+  },
+  "qna": false,
   "activationEvents": [
     "onStartupFinished"
   ],
@@ -44,7 +64,9 @@
     "test:integration": "vscode-test",
     "test": "npm run test:unit && npm run test:integration",
     "build": "node esbuild.js",
-    "vscode:prepublish": "node esbuild.js --minify"
+    "vscode:prepublish": "node esbuild.js --minify",
+    "package": "vsce package --no-dependencies",
+    "publish": "vsce publish --no-dependencies"
   },
   "overrides": {
     "serialize-javascript": "^7.0.5"
@@ -56,6 +78,7 @@
     "@types/vscode": "1.90.0",
     "@vscode/test-cli": "^0.0.12",
     "@vscode/test-electron": "^3.0.0",
+    "@vscode/vsce": "^3.9.2",
     "esbuild": "^0.28.1",
     "eslint": "^9.29.0",
     "eslint-config-prettier": "^10.1.5",

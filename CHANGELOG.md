@@ -7,7 +7,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-## [0.2.0] - 2026-06-13
+## [0.2.0] - 2026-06-14
 
 ### Added
 
@@ -59,6 +59,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   `TransientError`; `200` → `{ rawJson, etag, maxAge }`). Username is encoded via
   `encodeURIComponent` as a single path segment so special characters cannot alter the URL
   structure. Unexpected HTTP statuses throw explicitly.
+- **Marketplace release.** Packaged and published to the VS Code Marketplace as
+  `eunai.vscode-chess`. The manifest gained `repository`, `bugs`, `homepage`, `keywords`,
+  `galleryBanner`, and `qna` metadata; `package` / `publish` scripts (`@vscode/vsce`,
+  `--no-dependencies`); and a `.vscodeignore` so the packaged `.vsix` carries only the
+  bundled extension. The README install/status sections and the status badge now reflect
+  the live release. Installable from the Marketplace or via
+  `code --install-extension eunai.vscode-chess`.
 
 ### Fixed
 
