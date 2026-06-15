@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { Poller } from "./Poller";
-import type { PollResult } from "./Poller";
+import type { PollResult, PollStatus } from "./Poller";
 
 // ---------------------------------------------------------------------------
 // Fake infrastructure
@@ -722,6 +722,60 @@ describe("Poller", () => {
   // 9. Stale-cycle race: stop() → start() while old fetch is still in flight
   // -------------------------------------------------------------------------
 
+  // -------------------------------------------------------------------------
+  // S1 — Poller status forwarding (onStatus contract)
+  // -------------------------------------------------------------------------
+
+  it("K1: 200 response emits onStatus {kind:'counted'} with count and mostUrgent", async () => {
+    const clock = new FakeClock();
+    const rawGames = {
+      games: [
+        {
+          time_class: "daily",
+          fen: GAME.fen,
+          turn: "white",
+          move_by: GAME.moveBy,
+          url: GAME.url,
+          white: "https://api.chess.com/pub/player/playerone",
+          black: "https://api.chess.com/pub/player/playertwo",
+        },
+      ],
+    };
+
+    const fetchFn = (): Promise<Response> =>
+      Promise.resolve(
+        new Response(JSON.stringify(rawGames), {
+          status: 200,
+          headers: { "Cache-Control": "max-age=60" },
+        })
+      );
+
+    const statuses: PollStatus[] = [];
+    const poller = new Poller({
+      username: "playerone",
+      fetchFn,
+      onResult: () => undefined,
+      onStatus: (s) => statuses.push(s),
+      logger: makeLogger(),
+      clock,
+    });
+
+    poller.start();
+    await flush();
+
+    assert.strictEqual(statuses.length, 1, "exactly one status emitted");
+    const status = statuses[0];
+    assert.ok(status !== undefined);
+    assert.strictEqual(status.kind, "counted");
+    if (status.kind === "counted") {
+      assert.strictEqual(status.count, 1, "count = 1");
+      assert.ok(status.mostUrgent !== undefined, "mostUrgent populated");
+      assert.strictEqual(status.mostUrgent.url, GAME.url, "mostUrgent.url matches fixture");
+    }
+
+    poller.stop();
+  });
+
   it("stale cycle A cannot emit, log, or schedule after stop() → start() cycle B", async () => {
     const clock = new FakeClock();
     const logger = makeLogger();
@@ -784,6 +838,126 @@ describe("Poller", () => {
     await flush();
 
     assert.strictEqual(clock.count, 1, "live cycle B schedules exactly one timer");
+
+    poller.stop();
+  });
+
+  it("K2: 404 response emits onStatus {kind:'notFound'}", async () => {
+    const clock = new FakeClock();
+    const fetchFn = (): Promise<Response> => Promise.resolve(new Response(null, { status: 404 }));
+
+    const statuses: PollStatus[] = [];
+    const poller = new Poller({
+      username: "nobody",
+      fetchFn,
+      onResult: () => undefined,
+      onStatus: (s) => statuses.push(s),
+      logger: makeLogger(),
+      clock,
+    });
+
+    poller.start();
+    await flush();
+
+    assert.strictEqual(statuses.length, 1, "exactly one status emitted");
+    assert.strictEqual(statuses[0]?.kind, "notFound");
+
+    poller.stop();
+  });
+
+  it("K3: 429 emits onStatus {kind:'transient'}", async () => {
+    const clock = new FakeClock();
+    const fetchFn = (): Promise<Response> => Promise.resolve(new Response(null, { status: 429 }));
+
+    const statuses: PollStatus[] = [];
+    const poller = new Poller({
+      username: "playerone",
+      fetchFn,
+      onResult: () => undefined,
+      onStatus: (s) => statuses.push(s),
+      logger: makeLogger(),
+      clock,
+    });
+
+    poller.start();
+    await flush();
+
+    assert.strictEqual(statuses.length, 1, "exactly one status emitted");
+    assert.strictEqual(statuses[0]?.kind, "transient");
+
+    poller.stop();
+  });
+
+  it("K3b: 503 emits onStatus {kind:'transient'}", async () => {
+    const clock = new FakeClock();
+    const fetchFn = (): Promise<Response> => Promise.resolve(new Response(null, { status: 503 }));
+
+    const statuses: PollStatus[] = [];
+    const poller = new Poller({
+      username: "playerone",
+      fetchFn,
+      onResult: () => undefined,
+      onStatus: (s) => statuses.push(s),
+      logger: makeLogger(),
+      clock,
+    });
+
+    poller.start();
+    await flush();
+
+    assert.strictEqual(statuses.length, 1, "exactly one status emitted");
+    assert.strictEqual(statuses[0]?.kind, "transient");
+
+    poller.stop();
+  });
+
+  it("K4: network TypeError emits onStatus {kind:'transient'}", async () => {
+    const clock = new FakeClock();
+    const fetchFn = (): Promise<Response> => Promise.reject(new TypeError("Failed to fetch"));
+
+    const statuses: PollStatus[] = [];
+    const poller = new Poller({
+      username: "playerone",
+      fetchFn,
+      onResult: () => undefined,
+      onStatus: (s) => statuses.push(s),
+      logger: makeLogger(),
+      clock,
+    });
+
+    poller.start();
+    await flush();
+
+    assert.strictEqual(statuses.length, 1, "exactly one status emitted on network error");
+    assert.strictEqual(statuses[0]?.kind, "transient");
+
+    poller.stop();
+  });
+
+  it("K5: 304 (unchanged) emits nothing via onStatus — last-known preserved", async () => {
+    const clock = new FakeClock();
+    const fetchFn = (): Promise<Response> =>
+      Promise.resolve(
+        new Response(null, {
+          status: 304,
+          headers: { "Cache-Control": "max-age=60" },
+        })
+      );
+
+    const statuses: PollStatus[] = [];
+    const poller = new Poller({
+      username: "playerone",
+      fetchFn,
+      onResult: () => undefined,
+      onStatus: (s) => statuses.push(s),
+      logger: makeLogger(),
+      clock,
+    });
+
+    poller.start();
+    await flush();
+
+    assert.strictEqual(statuses.length, 0, "304 must not emit any onStatus call");
 
     poller.stop();
   });

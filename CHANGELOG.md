@@ -7,6 +7,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-06-14
+
+### Added
+
+- **Presence — the always-visible signal.** The status-bar item is now created at
+  activation and never hidden, rendering one of five states so you always have a
+  proof of life that the extension is installed and running: `♟ Set Username` before
+  a username is configured (click opens Settings), a bare `♟` when no Daily game
+  awaits your move, `♟ N` when N await (click opens the most urgent game),
+  `♟ Unknown User` when Chess.com does not recognise the username — a 404 (click
+  opens Settings), and the last-known label with a `Reconnecting...` tooltip during a
+  transient network / rate-limit / 5xx failure. The Turn Count is now one state of
+  the Presence rather than the whole element.
+- The poll loop now forwards each cycle's classified outcome (`counted` / `notFound`
+  / `transient`) to the extension host, which maps it — together with whether a
+  username is configured — to exactly one Presence state. The host renders that state
+  and never re-derives it.
+- **Extension icon** for the VS Code Marketplace listing (`assets/icon.png`, wired
+  via the manifest `icon` field).
+
+### Changed
+
+- **The status bar no longer goes empty when no game awaits your move.** Where
+  `0.2.0` hid the Turn Count whenever the count was zero, the Presence now stays
+  visible as a calm `♟`. This reverses the `0.2.0` "hidden at 0" behavior — the
+  always-visible proof of life is the purpose of this release.
+
 ## [0.2.0] - 2026-06-14
 
 ### Added
@@ -99,6 +126,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   urgent game in the browser.
 - GPL-3.0-or-later license.
 
-[Unreleased]: https://github.com/eunai/vscode-chess/compare/v0.2.0...HEAD
+[Unreleased]: https://github.com/eunai/vscode-chess/compare/v0.3.0...HEAD
+[0.3.0]: https://github.com/eunai/vscode-chess/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/eunai/vscode-chess/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/eunai/vscode-chess/releases/tag/v0.1.0

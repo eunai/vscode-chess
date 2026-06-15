@@ -19,5 +19,5 @@
     "src/config/**/*.ts",
     "src/test/**/*.ts"
   ],
-  "exclude": ["src/poller/**/*.test.ts", "src/turn/**/*.test.ts"]
+  "exclude": ["src/poller/**/*.test.ts", "src/turn/**/*.test.ts", "src/ui/**/*.test.ts"]
 }

@@ -3,23 +3,37 @@ import * as vscode from "vscode";
 import type { ChessExtensionApi } from "../extension";
 
 // ---------------------------------------------------------------------------
-// S5 — Integration (Extension Development Host, @vscode/test-electron)
+// Integration (Extension Development Host, @vscode/test-electron)
 //
 // Layer 2 of the test plan: only the wiring that genuinely needs the editor —
-// activation, the Turn Count status-bar item, the openMostUrgent command, and
-// config-driven start/stop. The pure logic is covered by the Layer 1 unit
-// suites (GamesParser / TurnState / ChessComClient / Poller).
+// activation, the always-visible Presence status-bar item, the openMostUrgent
+// command, and config-driven start/stop. The pure logic is covered by the
+// Layer 1 unit suites (GamesParser / TurnState / ChessComClient / Poller /
+// PresenceState / Presence).
+//
+// S3 — the always-visible Presence: T0 (tracer / proof-of-life) + W1–W4.
 // ---------------------------------------------------------------------------
 
 const EXTENSION_ID = "eunai.vscode-chess";
 const USERNAME_KEY = "vscodeChess.username";
+const OPEN_MOST_URGENT = "vscodeChess.openMostUrgent";
+const MOST_URGENT_URL = "https://www.chess.com/game/daily/749532278";
+
+/** The Settings affordance carried by the unconfigured / badUsername states.
+ * A plain `Command` object so it opens Settings at the username field without
+ * constructing any Chess.com URL from the Player username (privacy invariant). */
+const OPEN_SETTINGS_COMMAND = {
+  command: "workbench.action.openSettings",
+  title: "Set username",
+  arguments: [USERNAME_KEY],
+};
 
 /** One daily game awaiting white ("playerone"). */
 function dailyPayload(moveBy = 1_718_573_923): string {
   return JSON.stringify({
     games: [
       {
-        url: "https://www.chess.com/game/daily/749532278",
+        url: MOST_URGENT_URL,
         move_by: moveBy,
         turn: "white",
         time_class: "daily",
@@ -36,7 +50,7 @@ function noTurnPayload(): string {
   return JSON.stringify({
     games: [
       {
-        url: "https://www.chess.com/game/daily/749532278",
+        url: MOST_URGENT_URL,
         move_by: 1_718_573_923,
         turn: "black",
         time_class: "daily",
@@ -57,6 +71,12 @@ function fetchReturning(body: string): typeof fetch {
         headers: { "Cache-Control": "max-age=5" },
       })
     );
+}
+
+/** A fetch stub returning a fixed status with an empty body — for the 404
+ * (UsernameNotFound) and 5xx/429 (TransientError) classifications. */
+function fetchStatus(status: number): typeof fetch {
+  return () => Promise.resolve(new Response(null, { status }));
 }
 
 async function getApi(): Promise<ChessExtensionApi> {
@@ -88,71 +108,123 @@ describe("vscode-chess extension (integration)", () => {
   });
 
   // -------------------------------------------------------------------------
-  // 1. Activation with no username — no poll, hidden, no crash
+  // T0 — tracer / proof-of-life: on activation with no username, the Presence
+  //      is visible showing "Set Username", and its click opens Settings.
   // -------------------------------------------------------------------------
 
-  it("activates with no username set: no Poller, Turn Count hidden", () => {
-    const turnCount = api._getTurnCountForTest();
-    assert.equal(turnCount.visible, false);
-    assert.equal(api._getLastResultForTest(), undefined);
+  it("T0: with no username, the Presence is visible showing 'Set Username' and clicks open Settings", () => {
+    const presence = api._getPresenceForTest();
+    assert.equal(presence.visible, true);
+    assert.equal(presence.text, "♟ Set Username");
+    assert.deepEqual(presence.command, OPEN_SETTINGS_COMMAND);
   });
 
   // -------------------------------------------------------------------------
-  // 2. Activation with a username — Turn Count shows the count
+  // W1 — username set: counted(0) → idle (bare ♟, non-clickable);
+  //      counted(≥1) → count (♟ N) whose click opens the Most Urgent Game.
   // -------------------------------------------------------------------------
 
-  it("shows the Turn Count when a username is set and a game awaits the player", async () => {
-    api._setFetchForTest(fetchReturning(dailyPayload()));
-    await setUsername("playerone");
-    await api._pollOnceForTest();
-
-    const turnCount = api._getTurnCountForTest();
-    assert.equal(turnCount.visible, true);
-    assert.match(turnCount.text, /1/);
-
-    const result = api._getLastResultForTest();
-    assert.equal(result?.count, 1);
-  });
-
-  // -------------------------------------------------------------------------
-  // 3. Count drops to 0 — Turn Count hides
-  // -------------------------------------------------------------------------
-
-  it("hides the Turn Count when a later cycle reports zero awaiting games", async () => {
-    api._setFetchForTest(fetchReturning(dailyPayload()));
-    await setUsername("playerone");
-    await api._pollOnceForTest();
-    assert.equal(api._getTurnCountForTest().visible, true);
-
+  it("W1: counted(0) renders idle (non-clickable); counted(≥1) renders the count and opens the Most Urgent Game", async () => {
+    // counted(0): a game exists but none awaits the player's move → idle.
     api._setFetchForTest(fetchReturning(noTurnPayload()));
+    await setUsername("playerone");
     await api._pollOnceForTest();
 
-    assert.equal(api._getTurnCountForTest().visible, false);
-    assert.equal(api._getLastResultForTest()?.count, 0);
-  });
+    let presence = api._getPresenceForTest();
+    assert.equal(presence.visible, true);
+    assert.equal(presence.text, "♟");
+    assert.equal(presence.command, undefined, "idle Presence is non-clickable");
 
-  // -------------------------------------------------------------------------
-  // 4. openMostUrgent — opens the most-urgent game URL via env.openExternal
-  // -------------------------------------------------------------------------
-
-  it("openMostUrgent opens the most-urgent game URL via env.openExternal", async () => {
+    // counted(≥1): one game awaits → count, click opens the Most Urgent Game.
     const opened: string[] = [];
     api._setOpenExternalForTest((uri) => {
       opened.push(uri.toString());
       return Promise.resolve(true);
     });
     api._setFetchForTest(fetchReturning(dailyPayload()));
-    await setUsername("playerone");
     await api._pollOnceForTest();
 
-    await vscode.commands.executeCommand("vscodeChess.openMostUrgent");
+    presence = api._getPresenceForTest();
+    assert.equal(presence.visible, true);
+    assert.equal(presence.text, "♟ 1");
+    assert.equal(presence.command, OPEN_MOST_URGENT);
 
-    assert.equal(opened.length, 1);
-    assert.equal(opened[0], "https://www.chess.com/game/daily/749532278");
+    await vscode.commands.executeCommand(OPEN_MOST_URGENT);
+    assert.deepEqual(opened, [MOST_URGENT_URL]);
   });
 
   // -------------------------------------------------------------------------
-  // 5. openMostUrgent — rejects a non-chess.com URL (shape validation, R3)
+  // W2 — a notFound (404) status → badUsername, whose click opens Settings.
+  // -------------------------------------------------------------------------
+
+  it("W2: a 404 (notFound) status renders badUsername whose click opens Settings", async () => {
+    api._setFetchForTest(fetchStatus(404));
+    await setUsername("nobody");
+    await api._pollOnceForTest();
+
+    const presence = api._getPresenceForTest();
+    assert.equal(presence.visible, true);
+    assert.equal(presence.text, "♟ Unknown User");
+    assert.deepEqual(presence.command, OPEN_SETTINGS_COMMAND);
+  });
+
+  // -------------------------------------------------------------------------
+  // W3 — a transient (5xx) status keeps the last-known label and command and
+  //      swaps only the tooltip to "Reconnecting...".
+  // -------------------------------------------------------------------------
+
+  it("W3: a transient (503) status keeps the last-known label and command, tooltip 'Reconnecting...'", async () => {
+    const opened: string[] = [];
+    api._setOpenExternalForTest((uri) => {
+      opened.push(uri.toString());
+      return Promise.resolve(true);
+    });
+
+    // Establish a count state first.
+    api._setFetchForTest(fetchReturning(dailyPayload()));
+    await setUsername("playerone");
+    await api._pollOnceForTest();
+    assert.equal(api._getPresenceForTest().text, "♟ 1");
+
+    // A transient failure must not blank or alarm: last-known display retained.
+    api._setFetchForTest(fetchStatus(503));
+    await api._pollOnceForTest();
+
+    const presence = api._getPresenceForTest();
+    assert.equal(presence.visible, true);
+    assert.equal(presence.text, "♟ 1", "last-known label retained");
+    assert.equal(presence.command, OPEN_MOST_URGENT, "last-known command retained");
+    assert.equal(presence.tooltip, "Reconnecting...");
+
+    // The retained click target still opens the last-known Most Urgent Game.
+    await vscode.commands.executeCommand(OPEN_MOST_URGENT);
+    assert.deepEqual(opened, [MOST_URGENT_URL]);
+  });
+
+  // -------------------------------------------------------------------------
+  // W4 — clearing the username returns the Presence to unconfigured, still
+  //      visible, and stops the Poller.
+  // -------------------------------------------------------------------------
+
+  it("W4: clearing the username returns the Presence to unconfigured, still visible", async () => {
+    api._setFetchForTest(fetchReturning(dailyPayload()));
+    await setUsername("playerone");
+    await api._pollOnceForTest();
+    assert.equal(api._getPresenceForTest().text, "♟ 1");
+
+    await setUsername("");
+    // onDidChangeConfiguration is synchronous-ish; give the host a tick.
+    await new Promise((r) => setTimeout(r, 50));
+
+    const presence = api._getPresenceForTest();
+    assert.equal(presence.visible, true, "the Presence stays visible when unconfigured");
+    assert.equal(presence.text, "♟ Set Username");
+    assert.deepEqual(presence.command, OPEN_SETTINGS_COMMAND);
+    assert.equal(api._isRunningForTest(), false, "the Poller is stopped");
+  });
+
+  // -------------------------------------------------------------------------
+  // openMostUrgent — rejects a non-chess.com URL (shape validation, R4).
   // -------------------------------------------------------------------------
 
   it("openMostUrgent rejects a hostile URL and does not call openExternal", async () => {
@@ -178,13 +250,13 @@ describe("vscode-chess extension (integration)", () => {
     await setUsername("playerone");
     await api._pollOnceForTest();
 
-    await vscode.commands.executeCommand("vscodeChess.openMostUrgent");
+    await vscode.commands.executeCommand(OPEN_MOST_URGENT);
 
     assert.equal(opened.length, 0);
   });
 
   // -------------------------------------------------------------------------
-  // 6. openMostUrgent — no-op when there is no most-urgent game
+  // openMostUrgent — no-op when there is no most-urgent game (idle).
   // -------------------------------------------------------------------------
 
   it("openMostUrgent is a no-op when no game awaits the player", async () => {
@@ -197,60 +269,44 @@ describe("vscode-chess extension (integration)", () => {
     await setUsername("playerone");
     await api._pollOnceForTest();
 
-    await vscode.commands.executeCommand("vscodeChess.openMostUrgent");
+    await vscode.commands.executeCommand(OPEN_MOST_URGENT);
 
     assert.equal(opened.length, 0);
   });
 
   // -------------------------------------------------------------------------
-  // 7. Config change — clearing the username stops the Poller and hides
+  // Config change — switching to a different non-empty username must clear the
+  // stale count and open target immediately, before the new Player's first
+  // poll status arrives. The Presence stays visible, falling back to idle.
   // -------------------------------------------------------------------------
 
-  it("stops the Poller and hides the Turn Count when the username is cleared", async () => {
-    api._setFetchForTest(fetchReturning(dailyPayload()));
-    await setUsername("playerone");
-    await api._pollOnceForTest();
-    assert.equal(api._getTurnCountForTest().visible, true);
-
-    await setUsername("");
-    // onDidChangeConfiguration is synchronous-ish; give the host a tick.
-    await new Promise((r) => setTimeout(r, 50));
-
-    assert.equal(api._isRunningForTest(), false);
-    assert.equal(api._getTurnCountForTest().visible, false);
-  });
-
-  // -------------------------------------------------------------------------
-  // 8. Config change — switching to a different non-empty username must clear
-  //    the stale Turn Count and open target immediately, before the new
-  //    Player's first poll result arrives.
-  // -------------------------------------------------------------------------
-
-  it("clears the stale Turn Count and open target when switching to a different username", async () => {
+  it("clears the stale count and open target when switching to a different username", async () => {
     const opened: string[] = [];
     api._setOpenExternalForTest((uri) => {
       opened.push(uri.toString());
       return Promise.resolve(true);
     });
 
-    // Player A: one awaiting game, Turn Count visible, command targets A's game.
+    // Player A: one awaiting game, count visible, command targets A's game.
     api._setFetchForTest(fetchReturning(dailyPayload()));
     await setUsername("playerone");
     await api._pollOnceForTest();
-    assert.equal(api._getTurnCountForTest().visible, true);
+    assert.equal(api._getPresenceForTest().text, "♟ 1");
 
-    // Switch to Player B but never let B's first poll result return, so we can
+    // Switch to Player B but never let B's first poll status return, so we can
     // observe the state strictly between the setting change and any new render.
     api._setFetchForTest(() => new Promise<Response>(() => {}));
     await setUsername("playertwo");
-    // Let onDidChangeConfiguration run.
     await new Promise((r) => setTimeout(r, 50));
 
-    // The configured Player changed: the old count and target must be gone now.
-    assert.equal(api._getTurnCountForTest().visible, false);
-    assert.equal(api._getLastResultForTest(), undefined);
+    // The configured Player changed: the old count and target must be gone, the
+    // Presence falling back to idle (still visible) pending B's first status.
+    const presence = api._getPresenceForTest();
+    assert.equal(presence.visible, true);
+    assert.equal(presence.text, "♟");
+    assert.equal(presence.command, undefined);
 
-    await vscode.commands.executeCommand("vscodeChess.openMostUrgent");
+    await vscode.commands.executeCommand(OPEN_MOST_URGENT);
     assert.equal(opened.length, 0);
   });
 });

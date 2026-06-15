@@ -3,8 +3,14 @@ import { fetchGames } from "./ChessComClient";
 import { from } from "../turn/TurnState";
 import type { TurnStateResult } from "../turn/TurnState";
 import type { ConditionalParams } from "./ChessComClient";
+import type { DailyGame } from "./GamesParser";
 
 export type PollResult = TurnStateResult;
+
+export type PollStatus =
+  | { kind: "counted"; count: number; mostUrgent: DailyGame | undefined }
+  | { kind: "notFound" }
+  | { kind: "transient" };
 
 const MIN_DELAY_MS = 60_000;
 
@@ -23,6 +29,7 @@ interface PollerOptions {
   username: string;
   fetchFn: FetchFn;
   onResult: (result: PollResult) => void;
+  onStatus?: (status: PollStatus) => void;
   logger: Logger;
   clock?: Clock;
 }
@@ -36,6 +43,7 @@ export class Poller {
   private readonly username: string;
   private readonly fetchFn: FetchFn;
   private readonly onResult: (result: PollResult) => void;
+  private readonly onStatus: ((status: PollStatus) => void) | undefined;
   private readonly logger: Logger;
   private readonly clock: Clock;
 
@@ -50,6 +58,7 @@ export class Poller {
     this.username = options.username;
     this.fetchFn = options.fetchFn;
     this.onResult = options.onResult;
+    this.onStatus = options.onStatus;
     this.logger = options.logger;
     this.clock = options.clock ?? defaultClock;
   }
@@ -93,6 +102,7 @@ export class Poller {
             : this.lastKnownDelay;
         this.lastKnownDelay = delay;
         this.onResult(result);
+        this.onStatus?.({ kind: "counted", count: result.count, mostUrgent: result.mostUrgent });
         this.schedule(id, delay);
       } else if (outcome.type === "unchanged") {
         const delay =
@@ -101,7 +111,12 @@ export class Poller {
             : this.lastKnownDelay;
         this.lastKnownDelay = delay;
         this.schedule(id, delay);
+      } else if (outcome.type === "UsernameNotFound") {
+        this.onStatus?.({ kind: "notFound" });
+        this.schedule(id, MIN_DELAY_MS);
       } else {
+        // outcome.type === "TransientError"
+        this.onStatus?.({ kind: "transient" });
         this.logger.appendLine(`Poller: poll outcome ${outcome.type}`);
         this.schedule(id, MIN_DELAY_MS);
       }
@@ -110,6 +125,7 @@ export class Poller {
       if (err instanceof DOMException && err.name === "AbortError") return;
       const classification = err instanceof TypeError ? "network error" : "unexpected error";
       this.logger.appendLine(`Poller: cycle failed — ${classification}`);
+      this.onStatus?.({ kind: "transient" });
       this.schedule(id, MIN_DELAY_MS);
     }
   }
