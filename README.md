@@ -68,16 +68,16 @@ When no game awaits your move, the status bar stays empty.
 The in-sidebar view with rendered boards is part of the later 1.0 design and is not in
 this release.
 
-## Roadmap
+## ♟️ Roadmap
 
-The first release (`0.2.0`) is the always-visible status-bar **Turn Count**. Planned
-from here:
+Today, `0.2.0` is the status-bar **Turn Count**. Coming next:
 
-- **0.3.0** — an in-sidebar view rendering a board per Daily game.
-- **0.4.0** — the richer in-sidebar Turn Notice.
-- **0.5.0** — calm handling of network failures and rate limits.
+- A **sidebar** showing a live board for each of your Daily games.
+- An in-sidebar **Turn Notice** that mirrors the count.
+- **Calm under failure** — polling that never blanks out on a network blip.
 
-_Preliminary and subject to change while on `0.x`._
+Early days, so the order and details may shift. See the [changelog](CHANGELOG.md) for
+what's shipped.
 
 ## Versioning
 
