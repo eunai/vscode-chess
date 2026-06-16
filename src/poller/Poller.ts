@@ -8,7 +8,7 @@ import type { DailyGame } from "./GamesParser";
 export type PollResult = TurnStateResult;
 
 export type PollStatus =
-  | { kind: "counted"; count: number; mostUrgent: DailyGame | undefined }
+  | { kind: "counted"; games: DailyGame[]; count: number; mostUrgent: DailyGame | undefined }
   | { kind: "notFound" }
   | { kind: "transient" };
 
@@ -102,7 +102,12 @@ export class Poller {
             : this.lastKnownDelay;
         this.lastKnownDelay = delay;
         this.onResult(result);
-        this.onStatus?.({ kind: "counted", count: result.count, mostUrgent: result.mostUrgent });
+        this.onStatus?.({
+          kind: "counted",
+          games,
+          count: result.count,
+          mostUrgent: result.mostUrgent,
+        });
         this.schedule(id, delay);
       } else if (outcome.type === "unchanged") {
         const delay =

@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-06-15
+
+### Added
+
+- **Sidebar with live boards.** A new **Chess** view in the activity bar renders one chess
+  board per ongoing Daily game, oriented to your color and labelled with your opponent.
+  Games awaiting your move sort to the top with a calm marker. The view never blanks — before
+  a username is set, on an unknown user, or while reconnecting it shows a placeholder board
+  with a short note.
+
 ## [0.3.0] - 2026-06-14
 
 ### Added
@@ -126,7 +136,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   urgent game in the browser.
 - GPL-3.0-or-later license.
 
-[Unreleased]: https://github.com/eunai/vscode-chess/compare/v0.3.0...HEAD
+[Unreleased]: https://github.com/eunai/vscode-chess/compare/v0.4.0...HEAD
+[0.4.0]: https://github.com/eunai/vscode-chess/compare/v0.3.0...v0.4.0
 [0.3.0]: https://github.com/eunai/vscode-chess/compare/v0.2.0...v0.3.0
 [0.2.0]: https://github.com/eunai/vscode-chess/compare/v0.1.0...v0.2.0
 [0.1.0]: https://github.com/eunai/vscode-chess/releases/tag/v0.1.0

@@ -1,11 +1,10 @@
 {
-  "extends": "@total-typescript/tsconfig/bundler/no-dom",
+  "extends": "@total-typescript/tsconfig/bundler/dom",
   "compilerOptions": {
     "outDir": "out",
     "rootDir": "src",
     "resolveJsonModule": true,
     "types": ["node", "mocha"]
   },
-  "include": ["src/**/*.ts"],
-  "exclude": ["src/webview"]
+  "include": ["src/webview/**/*.ts"]
 }

@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import * as vscode from "vscode";
 import type { ChessExtensionApi } from "../extension";
+import type { RenderMessage } from "../sidebar/contract";
 
 // ---------------------------------------------------------------------------
 // Integration (Extension Development Host, @vscode/test-electron)
@@ -308,5 +309,42 @@ describe("vscode-chess extension (integration)", () => {
 
     await vscode.commands.executeCommand(OPEN_MOST_URGENT);
     assert.equal(opened.length, 0);
+  });
+
+  // -------------------------------------------------------------------------
+  // S3 sidebar — W1: the boards view is contributed under the activity-bar
+  //   container, and an attached, ready webview receives the host's render of
+  //   the Daily Game boards after a poll (the full host pipeline end to end).
+  // -------------------------------------------------------------------------
+
+  it("W1: the Daily Games webview view is contributed under the vscodeChess container", () => {
+    const ext = vscode.extensions.getExtension(EXTENSION_ID);
+    assert.ok(ext);
+    const pkg = ext.packageJSON as {
+      contributes?: { views?: Record<string, Array<{ id?: string; type?: string }>> };
+    };
+    const views = pkg.contributes?.views?.["vscodeChess"] ?? [];
+    assert.ok(
+      views.some((v) => v.id === "vscodeChess.boards" && v.type === "webview"),
+      "vscodeChess.boards webview view is contributed"
+    );
+  });
+
+  it("W1: an attached, ready webview receives a render of the Daily Game boards after a poll", async () => {
+    const posts: RenderMessage[] = [];
+    const presenter = api._getSidebarPresenterForTest();
+    presenter.attach({ postMessage: (message) => posts.push(message) });
+    presenter.ready();
+
+    api._setFetchForTest(fetchReturning(dailyPayload()));
+    await setUsername("playerone");
+    await api._pollOnceForTest();
+
+    const last = posts[posts.length - 1];
+    assert.ok(last, "the host posted a render message");
+    assert.equal(last.type, "render");
+    assert.equal(last.model.boards[0]?.opponent, "playertwo");
+    assert.equal(last.model.boards[0]?.awaiting, true, "the awaiting game carries the marker");
+    assert.equal(last.model.note, undefined);
   });
 });

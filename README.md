@@ -6,16 +6,18 @@ A VS Code extension that monitors a single player's [Chess.com](https://www.ches
 Daily (correspondence) games and calmly signals when it is their turn to move, with a
 link to open the most urgent game in the browser.
 
-> **Status:** Active (`0.3.0`). The extension is on the VS Code Marketplace; this
-> release makes the signal a true **Presence** — an always-visible status-bar ♟ that
-> shows how many Daily games await your move, with one-click open, and stays visible
-> as a proof of life in every state. The in-sidebar view with rendered boards
-> described below is part of the later 1.0 design and is not in this release yet.
+> **Status:** Active (`0.4.0`). Alongside the always-visible **Presence** — a status-bar ♟
+> that shows how many Daily games await your move, with one-click open, and a proof of life in
+> every state — this release adds the **sidebar**: a Chess view in the activity bar that
+> renders a live board for each of your Daily games.
 
 ## Features
 
 - **Turn awareness** — watches the player's ongoing Daily games and surfaces how many
   await a move.
+- **Sidebar with live boards** _(new in 0.4.0)_ — a Chess view in the activity bar renders a
+  board for each ongoing Daily game, oriented to your color and labelled with your opponent;
+  games awaiting your move sort to the top with a calm marker.
 - **Always-visible signal** — a status-bar ♟ stays visible in every state, even when no
   game awaits your move or the sidebar is hidden.
 - **Proof of life** — the ♟ appears the moment the extension loads, before you've even set
@@ -49,7 +51,7 @@ code --install-extension eunai.vscode-chess
 
 ```sh
 npm install
-npm run build      # bundle the extension host into dist/
+npm run build      # bundle the extension host + webview into dist/
 ```
 
 Then open the repository in VS Code and press <kbd>F5</kbd> to launch an Extension
@@ -72,14 +74,13 @@ and a bare `♟` when none await. Before you've configured a username it prompts
 `♟ Unknown User` — both click through to Settings. It never disappears, so you always
 have a proof of life that the extension is running.
 
-The in-sidebar view with rendered boards is part of the later 1.0 design and is not in
-this release.
+Open the **Chess** view from the activity bar to see a live board for each of your Daily
+games — oriented to your color, with the games awaiting your move sorted to the top.
 
 ## ♟️ Roadmap
 
-Today, `0.3.0` is the always-visible **Presence** in the status bar. Coming next:
+`0.4.0` adds the **sidebar with live boards** to the always-visible **Presence**. Coming next:
 
-- A **sidebar** showing a live board for each of your Daily games.
 - An in-sidebar **Turn Notice** that mirrors the count.
 - **Calm under failure** — polling that never blanks out on a network blip.
 

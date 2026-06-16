@@ -2,7 +2,12 @@ import assert from "node:assert/strict";
 import { from } from "./PresenceState";
 import type { PollStatus } from "../poller/Poller";
 
-const counted = (count: number): PollStatus => ({ kind: "counted", count, mostUrgent: undefined });
+const counted = (count: number): PollStatus => ({
+  kind: "counted",
+  games: [],
+  count,
+  mostUrgent: undefined,
+});
 const notFound: PollStatus = { kind: "notFound" };
 const transient: PollStatus = { kind: "transient" };
 

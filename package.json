@@ -2,7 +2,7 @@
   "name": "vscode-chess",
   "displayName": "VS Code Chess",
   "description": "Monitors Chess.com Daily games and notifies you when it is your turn to move.",
-  "version": "0.3.0",
+  "version": "0.4.0",
   "publisher": "eunai",
   "license": "GPL-3.0-or-later",
   "repository": {
@@ -54,12 +54,30 @@
         "title": "Open Most Urgent Daily Game",
         "category": "Chess"
       }
-    ]
+    ],
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "vscodeChess",
+          "title": "Chess",
+          "icon": "assets/activitybar.svg"
+        }
+      ]
+    },
+    "views": {
+      "vscodeChess": [
+        {
+          "type": "webview",
+          "id": "vscodeChess.boards",
+          "name": "Daily Games"
+        }
+      ]
+    }
   },
   "scripts": {
     "lint": "eslint .",
     "format:check": "prettier --check .",
-    "typecheck": "tsc --noEmit -p tsconfig.host.json",
+    "typecheck": "tsc --noEmit -p tsconfig.host.json && tsc --noEmit -p tsconfig.webview.json",
     "test:unit": "mocha",
     "pretest:integration": "npm run build && tsc -p tsconfig.test.json",
     "test:integration": "vscode-test",
@@ -88,5 +106,8 @@
     "tsx": "^4.19.4",
     "typescript": "^5.8.3",
     "typescript-eslint": "^8.35.0"
+  },
+  "dependencies": {
+    "chessground": "9.2.1"
   }
 }

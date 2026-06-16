@@ -77,4 +77,70 @@ describe("GamesParser.parse()", () => {
   it("throws on malformed game missing fen", () => {
     assert.throws(() => parse(missingFenPayload, "playerone"), /fen/i);
   });
+
+  // ---------------------------------------------------------------------------
+  // S1 (v0.4.0) — syntactic FEN validation at the data layer (crash-early)
+  // ---------------------------------------------------------------------------
+
+  /** A daily game for playerone carrying the given FEN. */
+  const gameWithFen = (fen: string): unknown => ({
+    games: [
+      {
+        url: "https://www.chess.com/game/daily/200",
+        fen,
+        turn: "white",
+        move_by: 9_999_999_999,
+        white: "https://api.chess.com/pub/player/playerone",
+        black: "https://api.chess.com/pub/player/playertwo",
+        time_class: "daily",
+      },
+    ],
+  });
+
+  it("F1: accepts a well-formed mid-game FEN", () => {
+    const games = parse(
+      gameWithFen("rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"),
+      "playerone"
+    );
+    assert.strictEqual(games.length, 1);
+    assert.strictEqual(
+      games[0]?.fen,
+      "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1"
+    );
+  });
+
+  it("F2a: rejects a FEN with the wrong number of fields", () => {
+    // Only 5 space-separated fields (missing fullmove number)
+    assert.throws(
+      () =>
+        parse(gameWithFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0"), "playerone"),
+      /fen/i
+    );
+  });
+
+  it("F2b: rejects a FEN whose rank does not sum to 8 squares", () => {
+    // Final rank "RNBQKBN" describes only 7 squares
+    assert.throws(
+      () =>
+        parse(gameWithFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBN w KQkq - 0 1"), "playerone"),
+      /fen/i
+    );
+  });
+
+  it("F2c: rejects a FEN with an illegal piece glyph", () => {
+    // 'X' is not a valid piece placement character
+    assert.throws(
+      () =>
+        parse(gameWithFen("rnbqkbnX/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1"), "playerone"),
+      /fen/i
+    );
+  });
+
+  it("F2d: rejects a FEN with an invalid side-to-move", () => {
+    assert.throws(
+      () =>
+        parse(gameWithFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR x KQkq - 0 1"), "playerone"),
+      /fen/i
+    );
+  });
 });

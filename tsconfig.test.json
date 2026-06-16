@@ -17,7 +17,13 @@
     "src/ui/**/*.ts",
     "src/commands/**/*.ts",
     "src/config/**/*.ts",
+    "src/sidebar/**/*.ts",
     "src/test/**/*.ts"
   ],
-  "exclude": ["src/poller/**/*.test.ts", "src/turn/**/*.test.ts", "src/ui/**/*.test.ts"]
+  "exclude": [
+    "src/poller/**/*.test.ts",
+    "src/turn/**/*.test.ts",
+    "src/ui/**/*.test.ts",
+    "src/sidebar/**/*.test.ts"
+  ]
 }

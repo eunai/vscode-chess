@@ -934,6 +934,126 @@ describe("Poller", () => {
     poller.stop();
   });
 
+  // -------------------------------------------------------------------------
+  // S1 (v0.4.0) — counted status carries the full parsed Daily Game list
+  // -------------------------------------------------------------------------
+
+  it("counted status carries the full parsed games[]; count/mostUrgent derive from it", async () => {
+    const clock = new FakeClock();
+    // Two daily games: A awaits playerone (white to move, playerone white),
+    // B does not (black to move). A.move_by is sooner → A is most urgent.
+    const rawGames = {
+      games: [
+        {
+          time_class: "daily",
+          fen: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
+          turn: "black",
+          move_by: 2_000_000_000,
+          url: "https://www.chess.com/game/daily/B",
+          white: "https://api.chess.com/pub/player/playerone",
+          black: "https://api.chess.com/pub/player/playertwo",
+        },
+        {
+          time_class: "daily",
+          fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+          turn: "white",
+          move_by: 1_000_000_000,
+          url: "https://www.chess.com/game/daily/A",
+          white: "https://api.chess.com/pub/player/playerone",
+          black: "https://api.chess.com/pub/player/playerthree",
+        },
+      ],
+    };
+
+    const fetchFn = (): Promise<Response> =>
+      Promise.resolve(
+        new Response(JSON.stringify(rawGames), {
+          status: 200,
+          headers: { "Cache-Control": "max-age=60" },
+        })
+      );
+
+    const statuses: PollStatus[] = [];
+    const poller = new Poller({
+      username: "playerone",
+      fetchFn,
+      onResult: () => undefined,
+      onStatus: (s) => statuses.push(s),
+      logger: makeLogger(),
+      clock,
+    });
+
+    poller.start();
+    await flush();
+
+    const status = statuses[0];
+    assert.ok(status !== undefined);
+    assert.strictEqual(status.kind, "counted");
+    if (status.kind === "counted") {
+      assert.strictEqual(status.games.length, 2, "counted carries every parsed Daily Game");
+      const urls = status.games.map((g) => g.url).sort();
+      assert.deepStrictEqual(urls, [
+        "https://www.chess.com/game/daily/A",
+        "https://www.chess.com/game/daily/B",
+      ]);
+      // count/mostUrgent are derived from that same array — not a separate source
+      assert.strictEqual(status.count, 1, "only A awaits playerone");
+      assert.ok(status.mostUrgent !== undefined);
+      assert.strictEqual(status.mostUrgent.url, "https://www.chess.com/game/daily/A");
+      assert.ok(
+        status.games.includes(status.mostUrgent),
+        "mostUrgent is one of the carried games (same array identity)"
+      );
+    }
+
+    poller.stop();
+  });
+
+  it("F3: a 200 carrying a malformed FEN is classified transient, emits no counted", async () => {
+    const clock = new FakeClock();
+    // Valid JSON, daily game, but the FEN's last rank describes only 7 squares.
+    const rawGames = {
+      games: [
+        {
+          time_class: "daily",
+          fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBN w KQkq - 0 1",
+          turn: "white",
+          move_by: 1_000_000_000,
+          url: "https://www.chess.com/game/daily/bad",
+          white: "https://api.chess.com/pub/player/playerone",
+          black: "https://api.chess.com/pub/player/playertwo",
+        },
+      ],
+    };
+
+    const fetchFn = (): Promise<Response> =>
+      Promise.resolve(
+        new Response(JSON.stringify(rawGames), {
+          status: 200,
+          headers: { "Cache-Control": "max-age=60" },
+        })
+      );
+
+    const statuses: PollStatus[] = [];
+    const poller = new Poller({
+      username: "playerone",
+      fetchFn,
+      onResult: () => undefined,
+      onStatus: (s) => statuses.push(s),
+      logger: makeLogger(),
+      clock,
+    });
+
+    poller.start();
+    await flush();
+
+    assert.strictEqual(statuses.length, 1, "exactly one status on a malformed-FEN cycle");
+    assert.strictEqual(statuses[0]?.kind, "transient", "malformed FEN → transient, not counted");
+    assert.strictEqual(clock.count, 1, "malformed-FEN cycle reschedules");
+
+    poller.stop();
+  });
+
   it("K5: 304 (unchanged) emits nothing via onStatus — last-known preserved", async () => {
     const clock = new FakeClock();
     const fetchFn = (): Promise<Response> =>

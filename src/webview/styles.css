@@ -1,0 +1,71 @@
+/* Sidebar layout — calm, compact, theme-driven. Joined into dist/webview.css
+   alongside the chessground base/brown/cburnett styles by esbuild. */
+
+body {
+  margin: 0;
+  padding: 0;
+  color: var(--vscode-foreground);
+  font-family: var(--vscode-font-family);
+  font-size: var(--vscode-font-size);
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 8px;
+  box-sizing: border-box;
+}
+
+/* The single host-authored Sidebar Note, pinned above the board column. */
+.note {
+  padding: 8px 10px;
+  border-radius: 4px;
+  line-height: 1.4;
+  border-left: 3px solid var(--vscode-focusBorder);
+  background: var(--vscode-editorWidget-background, rgba(127, 127, 127, 0.1));
+}
+.note--setup {
+  border-left-color: var(--vscode-focusBorder);
+}
+.note--warning {
+  border-left-color: var(--vscode-editorWarning-foreground, var(--vscode-focusBorder));
+}
+.note--retry {
+  border-left-color: var(--vscode-descriptionForeground, var(--vscode-focusBorder));
+  color: var(--vscode-descriptionForeground);
+}
+
+.boards {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+/* One Sidebar Board card. */
+.card {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-left: 5px;
+  border-left: 3px solid transparent; /* reserve the Awaiting Marker gutter — no layout shift */
+}
+.card--awaiting {
+  border-left-color: var(--vscode-focusBorder);
+}
+.card--awaiting .card__label {
+  font-weight: 600;
+}
+
+.card__label {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: var(--vscode-descriptionForeground);
+}
+
+/* The chessground host keeps a stable square while the board initializes. */
+.card__board {
+  width: 100%;
+  aspect-ratio: 1 / 1;
+}

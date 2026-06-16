@@ -7,6 +7,8 @@ import { from as toPresenceState } from "./turn/PresenceState";
 import { makeOpenMostUrgent } from "./commands/openMostUrgent";
 import type { OpenExternal } from "./commands/openMostUrgent";
 import { readUsername, onUsernameChange } from "./config/username";
+import { SidebarPresenter } from "./sidebar/SidebarPresenter";
+import { BoardsViewProvider, BOARDS_VIEW_ID } from "./sidebar/BoardsViewProvider";
 
 const COMMAND_ID = "vscodeChess.openMostUrgent";
 
@@ -30,13 +32,23 @@ export interface ChessExtensionApi {
   _isRunningForTest(): boolean;
   _pollOnceForTest(): Promise<void>;
   _restartForTest(): void;
+  _getSidebarPresenterForTest(): SidebarPresenter;
 }
 
 export function activate(context: vscode.ExtensionContext): ChessExtensionApi {
   const logger = vscode.window.createOutputChannel("VS Code Chess", { log: true });
   const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   const presence = new Presence(item, COMMAND_ID);
+  const presenter = new SidebarPresenter();
   context.subscriptions.push(logger, presence);
+
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      BOARDS_VIEW_ID,
+      new BoardsViewProvider(context.extensionUri, presenter),
+      { webviewOptions: { retainContextWhenHidden: false } }
+    )
+  );
 
   // Mutable wiring seams. Default to the real platform surfaces; the test API
   // can swap them before a cycle runs.
@@ -68,6 +80,7 @@ export function activate(context: vscode.ExtensionContext): ChessExtensionApi {
       mostUrgent = undefined;
     }
     render();
+    presenter.update(status, readUsername() !== "");
     const waiters = statusWaiters;
     statusWaiters = [];
     for (const resolve of waiters) resolve();
@@ -102,6 +115,9 @@ export function activate(context: vscode.ExtensionContext): ChessExtensionApi {
     lastStatus = undefined;
     mostUrgent = undefined;
     render();
+    // Reset the sidebar to the configured Player's placeholder; the old
+    // Player's boards never carry over (the store clears last-known).
+    presenter.update(undefined, username !== "");
     if (username !== "") {
       startPoller(username);
     }
@@ -158,6 +174,9 @@ export function activate(context: vscode.ExtensionContext): ChessExtensionApi {
     },
     _restartForTest() {
       applyUsername(readUsername());
+    },
+    _getSidebarPresenterForTest() {
+      return presenter;
     },
   };
 }
