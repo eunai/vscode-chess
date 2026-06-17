@@ -1,6 +1,10 @@
 import * as vscode from "vscode";
 import type { DailyGame } from "../poller/GamesParser";
 
+/** The command both the Presence (count click) and the Turn Notice run to open
+ * the Most Urgent Game. One shared open path keeps the two surfaces consistent. */
+export const OPEN_MOST_URGENT_COMMAND = "vscodeChess.openMostUrgent";
+
 export type OpenExternal = (target: vscode.Uri) => Thenable<boolean>;
 
 /** Validate that a game URL points at a Chess.com game page before it is ever

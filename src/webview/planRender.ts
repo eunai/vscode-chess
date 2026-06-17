@@ -20,14 +20,21 @@ export interface NotePlan {
   text: string;
 }
 
+/** The bottom Turn Notice, or `null` when no Daily Game awaits a move. */
+export interface NoticePlan {
+  count: number;
+}
+
 export interface RenderPlan {
   note: NotePlan | null;
   cards: CardPlan[];
+  notice: NoticePlan | null;
 }
 
 export function planRender(model: SidebarRenderModel): RenderPlan {
   return {
     note: model.note ? { kind: model.note.kind, text: model.note.text } : null,
+    notice: model.turnNotice ? { count: model.turnNotice.count } : null,
     cards: model.boards.map((board) => ({
       label: board.opponent === null ? null : `vs ${board.opponent}`,
       fen: board.fen,

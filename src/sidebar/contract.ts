@@ -26,10 +26,21 @@ export type SidebarNote =
   | { kind: "warning"; text: string }
   | { kind: "retry"; text: string };
 
+/**
+ * The host-authored count of Daily Games awaiting the Player's move — the same
+ * Turn Count the Presence shows. Present only when at least one game awaits;
+ * its absence is how the webview knows to render no Turn Notice.
+ */
+export interface TurnNotice {
+  count: number;
+}
+
 /** Everything the webview needs to render one frame. `boards` is always ≥ 1. */
 export interface SidebarRenderModel {
   boards: SidebarBoard[];
   note?: SidebarNote;
+  /** Host-authored; present (count ≥ 1) drives the bottom Turn Notice. */
+  turnNotice?: TurnNotice;
 }
 
 /** host → webview */
@@ -38,7 +49,20 @@ export interface RenderMessage {
   model: SidebarRenderModel;
 }
 
-/** webview → host (the only signal this slice; carries no data, no intent) */
+/** webview → host: the listener-registered handshake (carries no data). */
 export interface ReadyMessage {
   type: "ready";
 }
+
+/**
+ * webview → host: the User clicked the Turn Notice. An intent only — it carries
+ * no game and no URL; the host owns the open (it runs the existing
+ * `openMostUrgent` command against its own Most Urgent Game), keeping all I/O
+ * and the URL host-side per the "host owns I/O" rule.
+ */
+export interface OpenMostUrgentMessage {
+  type: "openMostUrgent";
+}
+
+/** Every message the webview can post to the host. */
+export type WebviewMessage = ReadyMessage | OpenMostUrgentMessage;

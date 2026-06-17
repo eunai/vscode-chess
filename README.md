@@ -6,10 +6,9 @@ A VS Code extension that monitors a single player's [Chess.com](https://www.ches
 Daily (correspondence) games and calmly signals when it is their turn to move, with a
 link to open the most urgent game in the browser.
 
-> **Status:** Active (`0.4.0`). Alongside the always-visible **Presence** — a status-bar ♟
-> that shows how many Daily games await your move, with one-click open, and a proof of life in
-> every state — this release adds the **sidebar**: a Chess view in the activity bar that
-> renders a live board for each of your Daily games.
+> **Status:** Active (`0.5.0`). This release adds the **Turn Notice** — a calm bar at the
+> bottom of the Chess sidebar that shows how many Daily games await your move and opens the
+> most urgent one in a click — mirroring the always-visible status-bar **Presence**.
 
 ## Features
 
@@ -18,6 +17,9 @@ link to open the most urgent game in the browser.
 - **Sidebar with live boards** _(new in 0.4.0)_ — a Chess view in the activity bar renders a
   board for each ongoing Daily game, oriented to your color and labelled with your opponent;
   games awaiting your move sort to the top with a calm marker.
+- **Turn Notice** _(new in 0.5.0)_ — when it's your turn, a calm bar pinned to the bottom of
+  the sidebar shows how many games await your move; click it to open the most urgent one. It
+  mirrors the status-bar count and stays in sync, even while reconnecting.
 - **Always-visible signal** — a status-bar ♟ stays visible in every state, even when no
   game awaits your move or the sidebar is hidden.
 - **Proof of life** — the ♟ appears the moment the extension loads, before you've even set
@@ -75,13 +77,15 @@ and a bare `♟` when none await. Before you've configured a username it prompts
 have a proof of life that the extension is running.
 
 Open the **Chess** view from the activity bar to see a live board for each of your Daily
-games — oriented to your color, with the games awaiting your move sorted to the top.
+games — oriented to your color, with the games awaiting your move sorted to the top. When it's
+your turn, a **Turn Notice** bar appears at the bottom of that view with the count; clicking it
+opens the most urgent game.
 
 ## ♟️ Roadmap
 
-`0.4.0` adds the **sidebar with live boards** to the always-visible **Presence**. Coming next:
+`0.5.0` adds the in-sidebar **Turn Notice**, mirroring the always-visible **Presence** count.
+Coming next:
 
-- An in-sidebar **Turn Notice** that mirrors the count.
 - **Calm under failure** — polling that never blanks out on a network blip.
 
 Early days, so the order and details may shift. See the [changelog](CHANGELOG.md) for

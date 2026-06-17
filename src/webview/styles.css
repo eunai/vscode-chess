@@ -9,12 +9,59 @@ body {
   font-size: var(--vscode-font-size);
 }
 
+html,
+body {
+  height: 100%;
+}
+
+/* Full-height column: the scroll region grows, the Turn Notice pins to the bottom. */
 #app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  box-sizing: border-box;
+}
+
+.scroll {
+  flex: 1 1 auto;
+  overflow-y: auto;
   display: flex;
   flex-direction: column;
   gap: 10px;
   padding: 8px;
   box-sizing: border-box;
+}
+
+/* The Turn Notice — a single calm clickable bar pinned to the bottom, mirroring
+   the Turn Count. Theme-driven, never an alarm color. */
+.notice {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 8px 10px;
+  border: none;
+  border-top: 1px solid var(--vscode-widget-border, var(--vscode-editorWidget-border, transparent));
+  background: var(--vscode-editorWidget-background, rgba(127, 127, 127, 0.1));
+  color: var(--vscode-foreground);
+  font-family: inherit;
+  font-size: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+.notice:hover {
+  background: var(--vscode-list-hoverBackground, rgba(127, 127, 127, 0.2));
+}
+.notice:focus-visible {
+  outline: 1px solid var(--vscode-focusBorder);
+  outline-offset: -1px;
+}
+.notice::after {
+  content: "›";
+  margin-left: auto;
+  padding-left: 8px;
+  opacity: 0.7;
 }
 
 /* The single host-authored Sidebar Note, pinned above the board column. */

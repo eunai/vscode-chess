@@ -1,6 +1,8 @@
 import * as vscode from "vscode";
 import type { SidebarPresenter } from "./SidebarPresenter";
 import type { RenderMessage } from "./contract";
+import { onWebviewMessage } from "./webviewMessage";
+import { OPEN_MOST_URGENT_COMMAND } from "../commands/openMostUrgent";
 
 export const VIEW_CONTAINER_ID = "vscodeChess";
 export const BOARDS_VIEW_ID = "vscodeChess.boards";
@@ -26,11 +28,13 @@ export class BoardsViewProvider implements vscode.WebviewViewProvider {
     };
     webview.html = this.html(webview);
 
-    webview.onDidReceiveMessage((message: unknown) => {
-      if (isReady(message)) {
-        this.presenter.ready();
-      }
-    });
+    webview.onDidReceiveMessage((message: unknown) =>
+      onWebviewMessage(message, {
+        ready: () => this.presenter.ready(),
+        // Intent only — the host owns the open and the game URL.
+        openMostUrgent: () => void vscode.commands.executeCommand(OPEN_MOST_URGENT_COMMAND),
+      })
+    );
     webviewView.onDidChangeVisibility(() => {
       this.presenter.setVisible(webviewView.visible);
     });
@@ -76,14 +80,6 @@ export class BoardsViewProvider implements vscode.WebviewViewProvider {
   </body>
 </html>`;
   }
-}
-
-function isReady(message: unknown): boolean {
-  return (
-    typeof message === "object" &&
-    message !== null &&
-    (message as { type?: unknown }).type === "ready"
-  );
 }
 
 function makeNonce(): string {

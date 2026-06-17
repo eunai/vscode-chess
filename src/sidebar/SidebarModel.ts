@@ -60,7 +60,7 @@ function orderBoards(games: DailyGame[]): SidebarBoard[] {
  * sidebar always renders at least one board (ADR 0004); `lastKnownBoards` is the
  * calm fallback re-sent on a transient failure.
  */
-export function from(
+function baseModel(
   status: PollStatus | undefined,
   usernameConfigured: boolean,
   lastKnownBoards: SidebarBoard[] | undefined
@@ -87,4 +87,22 @@ export function from(
       return { boards, note: RETRY_NOTE };
     }
   }
+}
+
+/**
+ * The sidebar render model, with the bottom Turn Notice attached. The Turn Count
+ * is derived from the boards the webview will actually render — the number
+ * carrying the Awaiting Marker — so the notice, the markers, and the Presence
+ * all mirror one polling result. On a transient failure the re-sent last-known
+ * boards carry their awaiting flags, so the count is preserved without a
+ * separate signal. The notice is omitted entirely when no game awaits a move.
+ */
+export function from(
+  status: PollStatus | undefined,
+  usernameConfigured: boolean,
+  lastKnownBoards: SidebarBoard[] | undefined
+): SidebarRenderModel {
+  const model = baseModel(status, usernameConfigured, lastKnownBoards);
+  const count = model.boards.filter((board) => board.awaiting).length;
+  return count > 0 ? { ...model, turnNotice: { count } } : model;
 }

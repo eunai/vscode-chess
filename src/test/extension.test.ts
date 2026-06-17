@@ -346,5 +346,6 @@ describe("vscode-chess extension (integration)", () => {
     assert.equal(last.model.boards[0]?.opponent, "playertwo");
     assert.equal(last.model.boards[0]?.awaiting, true, "the awaiting game carries the marker");
     assert.equal(last.model.note, undefined);
+    assert.equal(last.model.turnNotice?.count, 1, "the Turn Notice mirrors the awaiting count");
   });
 });

@@ -125,6 +125,54 @@ describe("SidebarModel.from()", () => {
     assert.strictEqual(model.boards[0]?.fen, EMPTY_BOARD_FEN);
     assert.strictEqual(model.note?.kind, "retry");
   });
+
+  it("TN1: counted with awaiting games → turnNotice mirrors the awaiting count", () => {
+    const model = from(
+      counted([
+        game({ url: "https://www.chess.com/game/daily/1", opponent: "a" }), // awaiting (w to move, player w)
+        game({ url: "https://www.chess.com/game/daily/2", opponent: "b" }), // awaiting
+        game({ url: "https://www.chess.com/game/daily/3", opponent: "c", turn: "black" }), // not awaiting
+      ]),
+      true,
+      undefined
+    );
+    assert.strictEqual(model.turnNotice?.count, 2);
+  });
+
+  it("TN2: counted with no awaiting games → no turnNotice", () => {
+    const model = from(
+      counted([game({ turn: "black", playerColor: "white", opponent: "a" })]), // not awaiting
+      true,
+      undefined
+    );
+    assert.strictEqual(model.turnNotice, undefined);
+  });
+
+  it("TN3: valid username, zero Daily Games → no turnNotice", () => {
+    assert.strictEqual(from(counted([]), true, undefined).turnNotice, undefined);
+  });
+
+  it("TN4: no username → no turnNotice", () => {
+    assert.strictEqual(from(undefined, false, undefined).turnNotice, undefined);
+  });
+
+  it("TN5: notFound → no turnNotice", () => {
+    assert.strictEqual(from({ kind: "notFound" }, true, undefined).turnNotice, undefined);
+  });
+
+  it("TN6: transient re-sends last-known awaiting boards → turnNotice keeps that count", () => {
+    const lastKnown: SidebarBoardFixture[] = [
+      { fen: "x", orientation: "white", opponent: "ada", awaiting: true },
+      { fen: "y", orientation: "black", opponent: "bo", awaiting: true },
+      { fen: "z", orientation: "white", opponent: "cy", awaiting: false },
+    ];
+    const model = from({ kind: "transient" }, true, lastKnown);
+    assert.strictEqual(model.turnNotice?.count, 2);
+  });
+
+  it("TN7: transient with no last-known → no turnNotice", () => {
+    assert.strictEqual(from({ kind: "transient" }, true, undefined).turnNotice, undefined);
+  });
 });
 
 // Local alias so the M9 fixture reads clearly without importing the contract type.

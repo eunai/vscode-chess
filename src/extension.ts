@@ -4,13 +4,13 @@ import type { PollStatus } from "./poller/Poller";
 import type { DailyGame } from "./poller/GamesParser";
 import { Presence } from "./ui/Presence";
 import { from as toPresenceState } from "./turn/PresenceState";
-import { makeOpenMostUrgent } from "./commands/openMostUrgent";
+import { makeOpenMostUrgent, OPEN_MOST_URGENT_COMMAND } from "./commands/openMostUrgent";
 import type { OpenExternal } from "./commands/openMostUrgent";
 import { readUsername, onUsernameChange } from "./config/username";
 import { SidebarPresenter } from "./sidebar/SidebarPresenter";
 import { BoardsViewProvider, BOARDS_VIEW_ID } from "./sidebar/BoardsViewProvider";
 
-const COMMAND_ID = "vscodeChess.openMostUrgent";
+const COMMAND_ID = OPEN_MOST_URGENT_COMMAND;
 
 type FetchFn = (url: string | URL | Request, init?: RequestInit) => Promise<Response>;
 

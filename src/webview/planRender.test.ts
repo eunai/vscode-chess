@@ -58,6 +58,17 @@ describe("planRender()", () => {
     );
   });
 
+  it("R-plan5: turnNotice present → a notice plan with the count; absent → null", () => {
+    const withNotice = planRender({
+      boards: [board({ awaiting: true, opponent: "a" })],
+      turnNotice: { count: 3 },
+    });
+    assert.strictEqual(withNotice.notice?.count, 3);
+
+    const without = planRender({ boards: [board()] });
+    assert.strictEqual(without.notice, null);
+  });
+
   it("carries fen and orientation through to each card", () => {
     const plan = planRender({
       boards: [board({ fen: "FEN", orientation: "black", opponent: "x" })],

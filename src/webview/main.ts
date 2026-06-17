@@ -1,7 +1,12 @@
 import { Chessground } from "chessground";
 import type { Config } from "chessground/config";
-import { planRender, type CardPlan, type NotePlan } from "./planRender";
-import type { ReadyMessage, RenderMessage, SidebarRenderModel } from "../sidebar/contract";
+import { planRender, type CardPlan, type NotePlan, type NoticePlan } from "./planRender";
+import type {
+  OpenMostUrgentMessage,
+  ReadyMessage,
+  RenderMessage,
+  SidebarRenderModel,
+} from "../sidebar/contract";
 
 import "chessground/assets/chessground.base.css";
 import "chessground/assets/chessground.brown.css";
@@ -47,20 +52,42 @@ function mountCard(parent: HTMLElement, card: CardPlan): void {
   Chessground(boardEl, config);
 }
 
+function mountNotice(parent: HTMLElement, notice: NoticePlan): void {
+  // A button so the whole bar is keyboard-activatable and focusable. Clicking
+  // posts intent only — the host owns the open and the game URL.
+  const el = document.createElement("button");
+  el.type = "button";
+  el.className = "notice";
+  const games = notice.count === 1 ? "game" : "games";
+  el.textContent = `♟ ${notice.count} ${games} · your move`;
+  el.addEventListener("click", () => {
+    const message: OpenMostUrgentMessage = { type: "openMostUrgent" };
+    vscode.postMessage(message);
+  });
+  parent.appendChild(el);
+}
+
 function render(root: HTMLElement, model: SidebarRenderModel): void {
   const plan = planRender(model);
   root.replaceChildren();
 
+  // Note + boards scroll; the Turn Notice is pinned to the bottom of the view.
+  const scroll = document.createElement("div");
+  scroll.className = "scroll";
   if (plan.note !== null) {
-    mountNote(root, plan.note);
+    mountNote(scroll, plan.note);
   }
-
   const boards = document.createElement("div");
   boards.className = "boards";
   for (const card of plan.cards) {
     mountCard(boards, card);
   }
-  root.appendChild(boards);
+  scroll.appendChild(boards);
+  root.appendChild(scroll);
+
+  if (plan.notice !== null) {
+    mountNotice(root, plan.notice);
+  }
 }
 
 function isRenderMessage(value: unknown): value is RenderMessage {
