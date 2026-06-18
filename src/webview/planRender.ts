@@ -13,6 +13,8 @@ export interface CardPlan {
   orientation: Orientation;
   /** Drives the Awaiting Marker styling. */
   awaiting: boolean;
+  /** This is the Most Urgent Game's board — drives the Urgent Glow styling. */
+  urgent: boolean;
 }
 
 export interface NotePlan {
@@ -40,6 +42,7 @@ export function planRender(model: SidebarRenderModel): RenderPlan {
       fen: board.fen,
       orientation: board.orientation,
       awaiting: board.awaiting,
+      urgent: board.mostUrgent,
     })),
   };
 }

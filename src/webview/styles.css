@@ -104,6 +104,18 @@ body {
   font-weight: 600;
 }
 
+/* The Urgent Glow — a calm STATIC halo on the single Most Urgent Game's board,
+   layered over its Awaiting Marker. Theme-driven (focusBorder), never an alarm
+   color, never animated. Tuned: 1px blur, 10px spread; the focusBorder is mixed
+   at 40% on light themes and a softer 20% on dark backgrounds. */
+.card--urgent {
+  border-radius: 4px;
+  box-shadow: 0 0 1px 10px color-mix(in srgb, var(--vscode-focusBorder) 40%, transparent);
+}
+body.vscode-dark .card--urgent {
+  box-shadow: 0 0 1px 10px color-mix(in srgb, var(--vscode-focusBorder) 20%, transparent);
+}
+
 .card__label {
   white-space: nowrap;
   overflow: hidden;

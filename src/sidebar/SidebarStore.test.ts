@@ -56,6 +56,36 @@ describe("SidebarStore", () => {
     assert.strictEqual(model.note?.kind, "retry");
   });
 
+  it("UG4: transient re-sends last-known boards with the Urgent Glow flag intact", () => {
+    const store = new SidebarStore();
+    const alice: DailyGame = {
+      ...awaitingGame,
+      url: "https://www.chess.com/game/daily/a",
+      opponent: "alice",
+      moveBy: 100,
+    };
+    const bob: DailyGame = {
+      ...awaitingGame,
+      url: "https://www.chess.com/game/daily/b",
+      opponent: "bob",
+      moveBy: 200,
+    };
+    const status: PollStatus = {
+      kind: "counted",
+      games: [bob, alice],
+      count: 2,
+      mostUrgent: alice,
+    };
+
+    store.update(status, true); // last-known boards carry the mostUrgent flag
+    const model = store.update({ kind: "transient" }, true); // re-send must preserve it
+
+    const aliceBoard = model.boards.find((b) => b.opponent === "alice");
+    assert.strictEqual(aliceBoard?.mostUrgent, true, "glow persists across a transient blip");
+    assert.strictEqual(model.boards.filter((b) => b.mostUrgent).length, 1);
+    assert.strictEqual(model.note?.kind, "retry");
+  });
+
   it("clears last-known when the username is removed", () => {
     const store = new SidebarStore();
     store.update(counted([awaitingGame]), true);

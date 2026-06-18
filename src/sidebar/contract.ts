@@ -18,6 +18,12 @@ export interface SidebarBoard {
   opponent: string | null;
   /** Host-derived: this Daily Game awaits the Player's move (drives the Awaiting Marker). */
   awaiting: boolean;
+  /**
+   * Host-derived: this board is the single Most Urgent Game (matched by `url`
+   * against the same game the Presence and Turn Notice open). Drives the Urgent
+   * Glow. At most one board in a model is `true`; placeholders are always `false`.
+   */
+  mostUrgent: boolean;
 }
 
 /** The single host-authored calm message at the top of the sidebar. */

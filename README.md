@@ -6,9 +6,8 @@ A VS Code extension that monitors a single player's [Chess.com](https://www.ches
 Daily (correspondence) games and calmly signals when it is their turn to move, with a
 link to open the most urgent game in the browser.
 
-> **Status:** Active (`0.5.0`). This release adds the **Turn Notice** — a calm bar at the
-> bottom of the Chess sidebar that shows how many Daily games await your move and opens the
-> most urgent one in a click — mirroring the always-visible status-bar **Presence**.
+> **Status:** Active (`0.6.0`). This release adds the **Urgent Glow** — a calm halo on the board
+> of your single most urgent Daily game, so your eye lands on the game with the soonest deadline.
 
 ## Features
 
@@ -20,6 +19,8 @@ link to open the most urgent game in the browser.
 - **Turn Notice** _(new in 0.5.0)_ — when it's your turn, a calm bar pinned to the bottom of
   the sidebar shows how many games await your move; click it to open the most urgent one. It
   mirrors the status-bar count and stays in sync, even while reconnecting.
+- **Urgent Glow** _(new in 0.6.0)_ — the board of your single most urgent Daily game carries a
+  calm glow, layered on the awaiting marker, so the soonest-deadline game stands out at a glance.
 - **Always-visible signal** — a status-bar ♟ stays visible in every state, even when no
   game awaits your move or the sidebar is hidden.
 - **Proof of life** — the ♟ appears the moment the extension loads, before you've even set
@@ -83,13 +84,18 @@ opens the most urgent game.
 
 ## ♟️ Roadmap
 
-`0.5.0` adds the in-sidebar **Turn Notice**, mirroring the always-visible **Presence** count.
+`0.6.0` adds the **Urgent Glow** — a calm halo on the board of your most urgent Daily game.
 Coming next:
 
 - **Calm under failure** — polling that never blanks out on a network blip.
 
-Early days, so the order and details may shift. See the [changelog](CHANGELOG.md) for
-what's shipped.
+Ideas being considered (not committed, order and details may shift):
+
+- **Last-move highlight** — highlight both squares of the last move on each board.
+- **Click any game to open it** — open a game straight from its board in the sidebar.
+- **Board theme** — board colors that complement your editor theme.
+
+Early days. See the [changelog](CHANGELOG.md) for what's actually shipped.
 
 ## Versioning
 

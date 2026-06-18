@@ -29,7 +29,16 @@ function mountNote(parent: HTMLElement, note: NotePlan): void {
 
 function mountCard(parent: HTMLElement, card: CardPlan): void {
   const cardEl = document.createElement("div");
-  cardEl.className = card.awaiting ? "card card--awaiting" : "card";
+  const classes = ["card"];
+  if (card.awaiting) {
+    classes.push("card--awaiting");
+  }
+  if (card.urgent) {
+    // The single Most Urgent Game's board — the Urgent Glow, layered on the
+    // Awaiting Marker (the most urgent game is always awaiting).
+    classes.push("card--urgent");
+  }
+  cardEl.className = classes.join(" ");
 
   if (card.label !== null) {
     const label = document.createElement("div");

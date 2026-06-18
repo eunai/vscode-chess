@@ -112,7 +112,7 @@ describe("SidebarModel.from()", () => {
 
   it("M9: transient with last-known boards → those exact boards re-sent + retry note", () => {
     const lastKnown: SidebarBoardFixture[] = [
-      { fen: "x", orientation: "white", opponent: "ada", awaiting: true },
+      { fen: "x", orientation: "white", opponent: "ada", awaiting: true, mostUrgent: true },
     ];
     const model = from({ kind: "transient" }, true, lastKnown);
     assert.deepStrictEqual(model.boards, lastKnown);
@@ -124,6 +124,54 @@ describe("SidebarModel.from()", () => {
     assert.strictEqual(model.boards.length, 1);
     assert.strictEqual(model.boards[0]?.fen, EMPTY_BOARD_FEN);
     assert.strictEqual(model.note?.kind, "retry");
+  });
+
+  it("UG1: marks exactly the board whose url matches status.mostUrgent — by identity, not position", () => {
+    const alice = game({
+      url: "https://www.chess.com/game/daily/a",
+      opponent: "alice",
+      moveBy: 100,
+    });
+    const bob = game({ url: "https://www.chess.com/game/daily/b", opponent: "bob", moveBy: 100 });
+    // Host designates `alice` as the Most Urgent Game; `moveBy` is tied (sort is
+    // ambiguous) and `alice` is NOT first in `games` — so only url identity can pick it.
+    const status: PollStatus = {
+      kind: "counted",
+      games: [bob, alice],
+      count: 2,
+      mostUrgent: alice,
+    };
+    const model = from(status, true, undefined);
+    const aliceBoard = model.boards.find((b) => b.opponent === "alice");
+    const bobBoard = model.boards.find((b) => b.opponent === "bob");
+    assert.strictEqual(aliceBoard?.mostUrgent, true);
+    assert.strictEqual(bobBoard?.mostUrgent, false);
+    assert.strictEqual(model.boards.filter((b) => b.mostUrgent).length, 1);
+  });
+
+  it("UG2: a counted with no awaiting games (mostUrgent undefined) marks no board", () => {
+    const model = from(
+      counted([
+        game({ url: "https://www.chess.com/game/daily/1", turn: "black", opponent: "a" }), // not awaiting
+        game({ url: "https://www.chess.com/game/daily/2", turn: "black", opponent: "b" }), // not awaiting
+      ]),
+      true,
+      undefined
+    );
+    assert.strictEqual(model.boards.filter((b) => b.mostUrgent).length, 0);
+  });
+
+  it("UG3: every placeholder board carries mostUrgent: false", () => {
+    const placeholders = [
+      from(undefined, false, undefined), // no username (setup)
+      from({ kind: "notFound" }, true, undefined), // bad username (warning)
+      from(counted([]), true, undefined), // zero Daily Games (starting)
+      from(undefined, true, undefined), // configured, pre-first-poll (starting)
+    ];
+    for (const model of placeholders) {
+      assert.strictEqual(model.boards.length, 1);
+      assert.strictEqual(model.boards[0]?.mostUrgent, false);
+    }
   });
 
   it("TN1: counted with awaiting games → turnNotice mirrors the awaiting count", () => {
@@ -162,9 +210,9 @@ describe("SidebarModel.from()", () => {
 
   it("TN6: transient re-sends last-known awaiting boards → turnNotice keeps that count", () => {
     const lastKnown: SidebarBoardFixture[] = [
-      { fen: "x", orientation: "white", opponent: "ada", awaiting: true },
-      { fen: "y", orientation: "black", opponent: "bo", awaiting: true },
-      { fen: "z", orientation: "white", opponent: "cy", awaiting: false },
+      { fen: "x", orientation: "white", opponent: "ada", awaiting: true, mostUrgent: true },
+      { fen: "y", orientation: "black", opponent: "bo", awaiting: true, mostUrgent: false },
+      { fen: "z", orientation: "white", opponent: "cy", awaiting: false, mostUrgent: false },
     ];
     const model = from({ kind: "transient" }, true, lastKnown);
     assert.strictEqual(model.turnNotice?.count, 2);
@@ -181,4 +229,5 @@ type SidebarBoardFixture = {
   orientation: "white" | "black";
   opponent: string | null;
   awaiting: boolean;
+  mostUrgent: boolean;
 };

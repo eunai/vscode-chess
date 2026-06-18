@@ -348,4 +348,22 @@ describe("vscode-chess extension (integration)", () => {
     assert.equal(last.model.note, undefined);
     assert.equal(last.model.turnNotice?.count, 1, "the Turn Notice mirrors the awaiting count");
   });
+
+  it("UG6: a counted poll posts a render whose model has exactly one Urgent Glow board", async () => {
+    const posts: RenderMessage[] = [];
+    const presenter = api._getSidebarPresenterForTest();
+    presenter.attach({ postMessage: (message) => posts.push(message) });
+    presenter.ready();
+
+    api._setFetchForTest(fetchReturning(dailyPayload()));
+    await setUsername("playerone");
+    await api._pollOnceForTest();
+
+    const last = posts[posts.length - 1];
+    assert.ok(last, "the host posted a render message");
+    const urgent = last.model.boards.filter((b) => b.mostUrgent);
+    assert.equal(urgent.length, 1, "exactly one board carries the Urgent Glow");
+    assert.equal(urgent[0]?.opponent, "playertwo", "the awaiting Most Urgent Game glows");
+    assert.equal(urgent[0]?.awaiting, true, "the Urgent Glow is layered on the Awaiting Marker");
+  });
 });

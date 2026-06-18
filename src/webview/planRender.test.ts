@@ -7,6 +7,7 @@ const board = (over: Partial<SidebarRenderModel["boards"][number]> = {}) => ({
   orientation: "white" as const,
   opponent: "opp" as string | null,
   awaiting: false,
+  mostUrgent: false,
   ...over,
 });
 
@@ -56,6 +57,17 @@ describe("planRender()", () => {
       plan.cards.map((c) => c.label),
       ["vs first", "vs second", "vs third"]
     );
+  });
+
+  it("UG5: a mostUrgent board → card.urgent true; others false, model order preserved", () => {
+    const plan = planRender({
+      boards: [
+        board({ opponent: "a", awaiting: true, mostUrgent: true }),
+        board({ opponent: "b", awaiting: true, mostUrgent: false }),
+      ],
+    });
+    assert.strictEqual(plan.cards[0]?.urgent, true);
+    assert.strictEqual(plan.cards[1]?.urgent, false);
   });
 
   it("R-plan5: turnNotice present → a notice plan with the count; absent → null", () => {

@@ -20,37 +20,56 @@ const RETRY_NOTE: SidebarNote = {
 };
 
 function emptyPlaceholder(): SidebarBoard {
-  return { fen: EMPTY_BOARD_FEN, orientation: "white", opponent: null, awaiting: false };
+  return {
+    fen: EMPTY_BOARD_FEN,
+    orientation: "white",
+    opponent: null,
+    awaiting: false,
+    mostUrgent: false,
+  };
 }
 
 function startingPlaceholder(): SidebarBoard {
-  return { fen: STARTING_FEN, orientation: "white", opponent: null, awaiting: false };
+  return {
+    fen: STARTING_FEN,
+    orientation: "white",
+    opponent: null,
+    awaiting: false,
+    mostUrgent: false,
+  };
 }
 
 function isAwaiting(game: DailyGame): boolean {
   return game.turn === game.playerColor;
 }
 
-function toBoard(game: DailyGame): SidebarBoard {
+/**
+ * Map a Daily Game to a board. `mostUrgentUrl` is the `url` of the host's Most
+ * Urgent Game; the board is flagged by `url` identity (never by list position),
+ * so the correct single board glows even when two games share a `moveBy`.
+ */
+function toBoard(game: DailyGame, mostUrgentUrl: string | undefined): SidebarBoard {
   return {
     fen: game.fen,
     orientation: game.playerColor,
     opponent: game.opponent,
     awaiting: isAwaiting(game),
+    mostUrgent: game.url === mostUrgentUrl,
   };
 }
 
 /**
  * Order Daily Games for the sidebar: awaiting games first by soonest `moveBy`,
  * then the rest by `url` ascending — a stable identity that keeps a non-awaiting
- * board in the same slot between cycles (calm, no churn).
+ * board in the same slot between cycles (calm, no churn). The Most Urgent Game
+ * (`mostUrgentUrl`) carries the Urgent Glow regardless of where it sorts.
  */
-function orderBoards(games: DailyGame[]): SidebarBoard[] {
+function orderBoards(games: DailyGame[], mostUrgentUrl: string | undefined): SidebarBoard[] {
   const awaiting = games.filter(isAwaiting).sort((a, b) => a.moveBy - b.moveBy);
   const others = games
     .filter((g) => !isAwaiting(g))
     .sort((a, b) => (a.url < b.url ? -1 : a.url > b.url ? 1 : 0));
-  return [...awaiting, ...others].map(toBoard);
+  return [...awaiting, ...others].map((game) => toBoard(game, mostUrgentUrl));
 }
 
 /**
@@ -76,7 +95,7 @@ function baseModel(
     case "counted":
       return status.games.length === 0
         ? { boards: [startingPlaceholder()] }
-        : { boards: orderBoards(status.games) };
+        : { boards: orderBoards(status.games, status.mostUrgent?.url) };
     case "notFound":
       return { boards: [emptyPlaceholder()], note: WARNING_NOTE };
     case "transient": {
