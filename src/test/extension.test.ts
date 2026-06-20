@@ -94,6 +94,14 @@ async function setUsername(value: string): Promise<void> {
     .update(USERNAME_KEY, value, vscode.ConfigurationTarget.Global);
 }
 
+const BOARD_THEME_KEY = "vscodeChess.boardTheme";
+
+async function setBoardTheme(value: string | undefined): Promise<void> {
+  await vscode.workspace
+    .getConfiguration()
+    .update(BOARD_THEME_KEY, value, vscode.ConfigurationTarget.Global);
+}
+
 describe("vscode-chess extension (integration)", () => {
   let api: ChessExtensionApi;
 
@@ -106,6 +114,7 @@ describe("vscode-chess extension (integration)", () => {
 
   afterEach(async () => {
     await setUsername("");
+    await setBoardTheme(undefined);
   });
 
   // -------------------------------------------------------------------------
@@ -401,5 +410,36 @@ describe("vscode-chess extension (integration)", () => {
     const last = posts[posts.length - 1];
     assert.ok(last, "the host posted a render message");
     assert.deepEqual(last.model.boards[0]?.lastMove, ["e7", "e5"]);
+  });
+
+  // -------------------------------------------------------------------------
+  // BT3 — Board Theme flows end to end: a counted poll posts a render whose
+  //   boardTheme reflects the vscodeChess.boardTheme setting, and changing the
+  //   setting re-renders with the new value (host owns the flag; the webview
+  //   only maps it to CSS).
+  // -------------------------------------------------------------------------
+
+  it("BT3: a counted poll posts a render whose boardTheme reflects the setting and flips on change", async () => {
+    const posts: RenderMessage[] = [];
+    const presenter = api._getSidebarPresenterForTest();
+    presenter.attach({ postMessage: (message) => posts.push(message) });
+    presenter.ready();
+
+    await setBoardTheme("classic");
+    await new Promise((r) => setTimeout(r, 50)); // onDidChangeConfiguration tick
+    api._setFetchForTest(fetchReturning(dailyPayload()));
+    await setUsername("playerone");
+    await api._pollOnceForTest();
+
+    let last = posts[posts.length - 1];
+    assert.ok(last, "the host posted a render message");
+    assert.equal(last.boardTheme, "classic", "posted boardTheme reflects the configured value");
+
+    await setBoardTheme("editor");
+    await new Promise((r) => setTimeout(r, 50));
+
+    last = posts[posts.length - 1];
+    assert.ok(last, "the host posted a render message after the setting change");
+    assert.equal(last.boardTheme, "editor", "changing the setting re-renders with the new value");
   });
 });

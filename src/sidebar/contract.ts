@@ -8,6 +8,22 @@
 
 export type Orientation = "white" | "black";
 
+/**
+ * Which palette colors the Sidebar Board's squares. `editor` derives the two
+ * square colors from the active theme (host flag → CSS); `classic` is the fixed
+ * chessground brown and the automatic fallback. The pieces are never themed.
+ */
+export type BoardTheme = "editor" | "classic";
+
+/**
+ * Coerce an untrusted `vscodeChess.boardTheme` config value to a `BoardTheme`.
+ * Anything that is not exactly `"classic"` — unset, a typo, a wrong type —
+ * defaults to `"editor"`. Total: never throws.
+ */
+export function normalizeBoardTheme(value: unknown): BoardTheme {
+  return value === "classic" ? "classic" : "editor";
+}
+
 /** One rendered chess board in the sidebar — a Daily Game or a placeholder. */
 export interface SidebarBoard {
   /** A validated FEN (payload board) or a trusted placeholder constant. */
@@ -59,6 +75,12 @@ export interface SidebarRenderModel {
 export interface RenderMessage {
   type: "render";
   model: SidebarRenderModel;
+  /**
+   * Host-authored display flag (the `vscodeChess.boardTheme` setting). Rides the
+   * render message rather than the poll model — it is display config, not poll
+   * state. The webview maps it to `body[data-board-theme]` and computes no color.
+   */
+  boardTheme: BoardTheme;
 }
 
 /** webview → host: the listener-registered handshake (carries no data). */

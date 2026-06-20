@@ -1,5 +1,5 @@
 import type { PollStatus } from "../poller/Poller";
-import type { RenderMessage } from "./contract";
+import type { BoardTheme, RenderMessage } from "./contract";
 import { SidebarStore } from "./SidebarStore";
 
 /** The webview side the presenter posts render messages to. */
@@ -19,6 +19,8 @@ export class SidebarPresenter {
   private readonly store = new SidebarStore();
   private poster: Poster | undefined;
   private visible = false;
+  /** The active Board Theme, injected by the host (vscode-free here). */
+  private boardTheme: BoardTheme = "editor";
 
   /** A webview view resolved — wire its post channel. */
   attach(poster: Poster): void {
@@ -53,10 +55,23 @@ export class SidebarPresenter {
     }
   }
 
+  /** The host's `vscodeChess.boardTheme` changed (or was read at activation).
+   * Stored and re-posted while visible, mirroring {@link update}'s guard. */
+  setBoardTheme(theme: BoardTheme): void {
+    this.boardTheme = theme;
+    if (this.visible) {
+      this.post();
+    }
+  }
+
   private post(): void {
     if (this.poster === undefined) {
       return;
     }
-    this.poster.postMessage({ type: "render", model: this.store.latestModel });
+    this.poster.postMessage({
+      type: "render",
+      model: this.store.latestModel,
+      boardTheme: this.boardTheme,
+    });
   }
 }

@@ -120,4 +120,37 @@ describe("SidebarPresenter", () => {
     assert.strictEqual(poster.last?.model.boards[0]?.opponent, null);
     assert.strictEqual(poster.last?.model.note?.kind, "retry");
   });
+
+  it("BT2a: every posted render carries the boardTheme (default 'editor')", () => {
+    const presenter = new SidebarPresenter();
+    const poster = new FakePoster();
+    presenter.attach(poster);
+    presenter.ready();
+
+    assert.strictEqual(poster.last?.boardTheme, "editor");
+  });
+
+  it("BT2b: setBoardTheme re-posts when visible, no-ops when hidden, replays on become-visible", () => {
+    const presenter = new SidebarPresenter();
+    const poster = new FakePoster();
+    presenter.attach(poster);
+    presenter.ready(); // visible; posts with the default 'editor'
+
+    const beforeVisible = poster.posts.length;
+    presenter.setBoardTheme("classic");
+    assert.strictEqual(poster.posts.length, beforeVisible + 1, "visible setBoardTheme posts once");
+    assert.strictEqual(poster.last?.boardTheme, "classic");
+
+    presenter.setVisible(false);
+    const beforeHidden = poster.posts.length;
+    presenter.setBoardTheme("editor");
+    assert.strictEqual(poster.posts.length, beforeHidden, "hidden setBoardTheme posts nothing");
+
+    presenter.setVisible(true); // become-visible replays the latest model + boardTheme
+    assert.strictEqual(
+      poster.last?.boardTheme,
+      "editor",
+      "become-visible carries the latest boardTheme"
+    );
+  });
 });

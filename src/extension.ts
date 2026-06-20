@@ -7,6 +7,7 @@ import { from as toPresenceState } from "./turn/PresenceState";
 import { makeOpenMostUrgent, OPEN_MOST_URGENT_COMMAND } from "./commands/openMostUrgent";
 import type { OpenExternal } from "./commands/openMostUrgent";
 import { readUsername, onUsernameChange } from "./config/username";
+import { readBoardTheme, onBoardThemeChange } from "./config/boardTheme";
 import { SidebarPresenter } from "./sidebar/SidebarPresenter";
 import { BoardsViewProvider, BOARDS_VIEW_ID } from "./sidebar/BoardsViewProvider";
 
@@ -40,6 +41,7 @@ export function activate(context: vscode.ExtensionContext): ChessExtensionApi {
   const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   const presence = new Presence(item, COMMAND_ID);
   const presenter = new SidebarPresenter();
+  presenter.setBoardTheme(readBoardTheme());
   context.subscriptions.push(logger, presence);
 
   context.subscriptions.push(
@@ -133,8 +135,9 @@ export function activate(context: vscode.ExtensionContext): ChessExtensionApi {
   );
 
   const configListener = onUsernameChange(applyUsername);
+  const boardThemeListener = onBoardThemeChange((theme) => presenter.setBoardTheme(theme));
 
-  context.subscriptions.push(command, configListener, {
+  context.subscriptions.push(command, configListener, boardThemeListener, {
     dispose: () => {
       stopPoller();
     },

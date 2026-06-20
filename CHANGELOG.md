@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-06-20
+
+### Added
+
+- **Board Theme.** The boards in the Chess sidebar can now wear your active VS Code color theme:
+  the squares are tinted from your editor's palette so the board feels at home in your theme, while
+  staying calm and keeping the pieces clearly readable. New, on by default; set
+  `vscodeChess.boardTheme` to `classic` for the traditional board colors. The chess pieces
+  themselves are never recolored.
+
 ## [0.7.0] - 2026-06-20
 
 ### Added
@@ -161,7 +171,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   urgent game in the browser.
 - GPL-3.0-or-later license.
 
-[Unreleased]: https://github.com/eunai/vscode-chess/compare/v0.7.0...HEAD
+[Unreleased]: https://github.com/eunai/vscode-chess/compare/v0.8.0...HEAD
+[0.8.0]: https://github.com/eunai/vscode-chess/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/eunai/vscode-chess/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/eunai/vscode-chess/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/eunai/vscode-chess/compare/v0.4.0...v0.5.0

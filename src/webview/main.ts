@@ -119,6 +119,10 @@ const root = document.getElementById("app") ?? document.body;
 window.addEventListener("message", (event: MessageEvent) => {
   const message: unknown = event.data;
   if (isRenderMessage(message)) {
+    // Host-authored Board Theme flag → a body attribute the CSS keys off. The
+    // webview only selects a CSS branch here; it computes no color. Squares only
+    // (ADR 0005) — the pieces are never touched.
+    document.body.dataset.boardTheme = message.boardTheme;
     render(root, message.model);
   }
 });

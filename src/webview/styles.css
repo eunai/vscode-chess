@@ -140,3 +140,33 @@ body.vscode-dark .card--urgent {
 cg-board square.last-move {
   background: color-mix(in srgb, var(--vscode-charts-orange, #ffff00) 50%, transparent);
 }
+
+/* The Board Theme — recolors the board SURFACE (the two square colors) only,
+   NEVER the pieces (ADR 0005). chessground's baked brown board image is replaced
+   by a CSS checkerboard built from two custom properties. The classic brown pair
+   is the base — and therefore the automatic fallback when relative-color syntax is
+   unsupported (the @supports guard) and under high-contrast themes (the body guard).
+   The themed override (editor mode) borrows only the active theme's hue + a capped
+   chroma from --vscode-editor-background and clamps lightness into a mid band, so the
+   board stays calm and both piece colors stay legible (proven >= 3:1 across
+   dark/light/HC). Holds only while ./styles.css is the LAST CSS import in main.ts.
+   The cburnett pieces are a separate chessground layer (piece { z-index: 2 }) and are
+   never selected here — board theming does not touch them. */
+cg-board {
+  --sq-light: #f0d9b5;
+  --sq-dark: #c0ae91;
+  background: conic-gradient(
+      var(--sq-dark) 90deg,
+      var(--sq-light) 90deg 180deg,
+      var(--sq-dark) 180deg 270deg,
+      var(--sq-light) 270deg
+    )
+    0 0 / 25% 25%;
+}
+@supports (color: oklch(from white l c h)) {
+  body[data-board-theme="editor"]:not(.vscode-high-contrast):not(.vscode-high-contrast-light)
+    cg-board {
+    --sq-light: oklch(from var(--vscode-editor-background) clamp(0.62, l, 0.72) min(c, 0.05) h);
+    --sq-dark: oklch(from var(--vscode-editor-background) clamp(0.48, l, 0.58) min(c, 0.05) h);
+  }
+}

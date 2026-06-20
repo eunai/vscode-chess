@@ -2,7 +2,7 @@
   "name": "vscode-chess",
   "displayName": "VS Code Chess",
   "description": "Monitors Chess.com Daily games and notifies you when it is your turn to move.",
-  "version": "0.7.0",
+  "version": "0.8.0",
   "publisher": "eunai",
   "license": "GPL-3.0-or-later",
   "repository": {
@@ -45,6 +45,20 @@
           "default": "",
           "scope": "application",
           "description": "Your Chess.com username."
+        },
+        "vscodeChess.boardTheme": {
+          "type": "string",
+          "enum": [
+            "editor",
+            "classic"
+          ],
+          "enumDescriptions": [
+            "Tint the board squares from your active VS Code color theme.",
+            "Use the classic board palette."
+          ],
+          "default": "editor",
+          "scope": "window",
+          "description": "Color the chess board squares to match your active VS Code theme, or use the classic board palette. The chess pieces are never themed."
         }
       }
     },
