@@ -1,3 +1,5 @@
+import { deriveLastMove } from "./lastMove";
+
 export type PlayerColor = "white" | "black";
 
 export interface DailyGame {
@@ -7,6 +9,12 @@ export interface DailyGame {
   url: string;
   opponent: string;
   playerColor: PlayerColor;
+  /**
+   * Host-derived [from, to] of the most recent move — drives the Move Trail.
+   * Omitted (never undefined) when the game has no usable pgn; the raw pgn is
+   * never stored on the game (carry-light).
+   */
+  lastMove?: [string, string];
 }
 
 function urlTail(profileUrl: string): string {
@@ -132,14 +140,22 @@ export function parse(rawJson: unknown, configuredUsername: string): DailyGame[]
       throw new Error(`Configured username "${configuredUsername}" not found in game player URLs`);
     }
 
-    result.push({
+    // Best-effort, per board: a missing/malformed pgn yields undefined and is
+    // omitted — never thrown — so one bad game's trail can't abort the loop or
+    // downgrade the cycle. Only [from, to] is kept; the raw pgn is discarded.
+    const lastMove = typeof g["pgn"] === "string" ? deriveLastMove(g["pgn"]) : undefined;
+    const game: DailyGame = {
       fen: g["fen"],
       turn: g["turn"],
       moveBy: g["move_by"],
       url: g["url"],
       opponent,
       playerColor,
-    });
+    };
+    if (lastMove) {
+      game.lastMove = lastMove;
+    }
+    result.push(game);
   }
 
   return result;

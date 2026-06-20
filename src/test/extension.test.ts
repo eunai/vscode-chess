@@ -366,4 +366,40 @@ describe("vscode-chess extension (integration)", () => {
     assert.equal(urgent[0]?.opponent, "playertwo", "the awaiting Most Urgent Game glows");
     assert.equal(urgent[0]?.awaiting, true, "the Urgent Glow is layered on the Awaiting Marker");
   });
+
+  // -------------------------------------------------------------------------
+  // MT9 — the Move Trail flows end to end: a counted poll posts a render whose
+  //   board carries the host-derived lastMove ([from, to]) from the game's pgn.
+  // -------------------------------------------------------------------------
+
+  it("MT9: a counted poll posts a render whose board carries the derived Move Trail", async () => {
+    const posts: RenderMessage[] = [];
+    const presenter = api._getSidebarPresenterForTest();
+    presenter.attach({ postMessage: (message) => posts.push(message) });
+    presenter.ready();
+
+    // After 1. e4 e5 it is white ("playerone") to move — so the game awaits the
+    // player AND the last move (black's ...e5) is e7->e5. FEN and pgn agree.
+    const withTrail = JSON.stringify({
+      games: [
+        {
+          url: MOST_URGENT_URL,
+          move_by: 1_718_573_923,
+          turn: "white",
+          time_class: "daily",
+          pgn: "1. e4 e5",
+          white: "https://api.chess.com/pub/player/playerone",
+          black: "https://api.chess.com/pub/player/playertwo",
+          fen: "rnbqkbnr/pppp1ppp/8/4p3/4P3/8/PPPP1PPP/RNBQKBNR w KQkq e6 0 2",
+        },
+      ],
+    });
+    api._setFetchForTest(fetchReturning(withTrail));
+    await setUsername("playerone");
+    await api._pollOnceForTest();
+
+    const last = posts[posts.length - 1];
+    assert.ok(last, "the host posted a render message");
+    assert.deepEqual(last.model.boards[0]?.lastMove, ["e7", "e5"]);
+  });
 });

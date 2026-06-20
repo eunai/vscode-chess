@@ -93,4 +93,19 @@ describe("SidebarStore", () => {
     const model = store.update({ kind: "transient" }, true);
     assert.strictEqual(model.boards[0]?.fen, EMPTY_BOARD_FEN);
   });
+
+  it("MT7: transient re-sends last-known boards with the Move Trail (lastMove) intact", () => {
+    const store = new SidebarStore();
+    const withTrail: DailyGame = {
+      ...awaitingGame,
+      url: "https://www.chess.com/game/daily/trail",
+      opponent: "ada",
+      lastMove: ["e2", "e4"],
+    };
+    store.update(counted([withTrail]), true); // last-known boards carry the trail
+    const model = store.update({ kind: "transient" }, true); // re-send must preserve it
+    const board = model.boards.find((b) => b.opponent === "ada");
+    assert.deepStrictEqual(board?.lastMove, ["e2", "e4"], "trail persists across a transient blip");
+    assert.strictEqual(model.note?.kind, "retry");
+  });
 });

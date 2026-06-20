@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.7.0] - 2026-06-20
+
+### Added
+
+- **Move Trail.** Each board in the Chess sidebar now highlights the two squares of the most
+  recent move (where the last piece came from and where it landed), so you can see what just
+  happened at a glance. The highlight is a calm, warm tint that adapts to your color theme and
+  stays put through a brief reconnect.
+
 ## [0.6.0] - 2026-06-18
 
 ### Added
@@ -152,7 +161,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   urgent game in the browser.
 - GPL-3.0-or-later license.
 
-[Unreleased]: https://github.com/eunai/vscode-chess/compare/v0.6.0...HEAD
+[Unreleased]: https://github.com/eunai/vscode-chess/compare/v0.7.0...HEAD
+[0.7.0]: https://github.com/eunai/vscode-chess/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/eunai/vscode-chess/compare/v0.5.0...v0.6.0
 [0.5.0]: https://github.com/eunai/vscode-chess/compare/v0.4.0...v0.5.0
 [0.4.0]: https://github.com/eunai/vscode-chess/compare/v0.3.0...v0.4.0

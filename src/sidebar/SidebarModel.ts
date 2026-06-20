@@ -49,13 +49,19 @@ function isAwaiting(game: DailyGame): boolean {
  * so the correct single board glows even when two games share a `moveBy`.
  */
 function toBoard(game: DailyGame, mostUrgentUrl: string | undefined): SidebarBoard {
-  return {
+  const board: SidebarBoard = {
     fen: game.fen,
     orientation: game.playerColor,
     opponent: game.opponent,
     awaiting: isAwaiting(game),
     mostUrgent: game.url === mostUrgentUrl,
   };
+  // Conditional-omit: carry the Move Trail only when present, so a no-move board
+  // is structurally identical to a placeholder (never `lastMove: undefined`).
+  if (game.lastMove) {
+    board.lastMove = game.lastMove;
+  }
+  return board;
 }
 
 /**

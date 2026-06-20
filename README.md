@@ -6,8 +6,8 @@ A VS Code extension that monitors a single player's [Chess.com](https://www.ches
 Daily (correspondence) games and calmly signals when it is their turn to move, with a
 link to open the most urgent game in the browser.
 
-> **Status:** Active (`0.6.0`). This release adds the **Urgent Glow** — a calm halo on the board
-> of your single most urgent Daily game, so your eye lands on the game with the soonest deadline.
+> **Status:** Active (`0.7.0`). This release adds the **Move Trail** — a calm, warm highlight on
+> the two squares of the most recent move on each board, so you can see what just happened at a glance.
 
 ## Features
 
@@ -21,6 +21,8 @@ link to open the most urgent game in the browser.
   mirrors the status-bar count and stays in sync, even while reconnecting.
 - **Urgent Glow** _(new in 0.6.0)_ — the board of your single most urgent Daily game carries a
   calm glow, layered on the awaiting marker, so the soonest-deadline game stands out at a glance.
+- **Move Trail** _(new in 0.7.0)_ — each board highlights the two squares of the most recent move
+  (where the last piece came from and where it landed) with a calm, theme-adaptive warm tint.
 - **Always-visible signal** — a status-bar ♟ stays visible in every state, even when no
   game awaits your move or the sidebar is hidden.
 - **Proof of life** — the ♟ appears the moment the extension loads, before you've even set
@@ -84,14 +86,13 @@ opens the most urgent game.
 
 ## ♟️ Roadmap
 
-`0.6.0` adds the **Urgent Glow** — a calm halo on the board of your most urgent Daily game.
-Coming next:
+`0.7.0` adds the **Move Trail** — a calm, warm highlight on the two squares of the most recent
+move on each board. Coming next:
 
 - **Calm under failure** — polling that never blanks out on a network blip.
 
 Ideas being considered (not committed, order and details may shift):
 
-- **Last-move highlight** — highlight both squares of the last move on each board.
 - **Click any game to open it** — open a game straight from its board in the sidebar.
 - **Board theme** — board colors that complement your editor theme.
 

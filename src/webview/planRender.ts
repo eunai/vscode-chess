@@ -15,6 +15,8 @@ export interface CardPlan {
   awaiting: boolean;
   /** This is the Most Urgent Game's board — drives the Urgent Glow styling. */
   urgent: boolean;
+  /** [from, to] of the most recent move — drives the Move Trail. Omitted when absent. */
+  lastMove?: [string, string];
 }
 
 export interface NotePlan {
@@ -37,12 +39,20 @@ export function planRender(model: SidebarRenderModel): RenderPlan {
   return {
     note: model.note ? { kind: model.note.kind, text: model.note.text } : null,
     notice: model.turnNotice ? { count: model.turnNotice.count } : null,
-    cards: model.boards.map((board) => ({
-      label: board.opponent === null ? null : `vs ${board.opponent}`,
-      fen: board.fen,
-      orientation: board.orientation,
-      awaiting: board.awaiting,
-      urgent: board.mostUrgent,
-    })),
+    cards: model.boards.map((board) => {
+      const card: CardPlan = {
+        label: board.opponent === null ? null : `vs ${board.opponent}`,
+        fen: board.fen,
+        orientation: board.orientation,
+        awaiting: board.awaiting,
+        urgent: board.mostUrgent,
+      };
+      // Conditional-omit, mirroring the board model: carry the Move Trail only
+      // when present, so an absent trail is never `lastMove: undefined`.
+      if (board.lastMove) {
+        card.lastMove = board.lastMove;
+      }
+      return card;
+    }),
   };
 }

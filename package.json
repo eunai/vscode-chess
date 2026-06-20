@@ -2,7 +2,7 @@
   "name": "vscode-chess",
   "displayName": "VS Code Chess",
   "description": "Monitors Chess.com Daily games and notifies you when it is your turn to move.",
-  "version": "0.6.0",
+  "version": "0.7.0",
   "publisher": "eunai",
   "license": "GPL-3.0-or-later",
   "repository": {
@@ -108,6 +108,7 @@
     "typescript-eslint": "^8.35.0"
   },
   "dependencies": {
+    "chess.js": "^1.4.0",
     "chessground": "9.2.1"
   }
 }

@@ -38,12 +38,13 @@ describe("GamesParser.parse()", () => {
     const [game] = games;
     assert.ok(game !== undefined);
     assert.deepStrictEqual(game, {
-      fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
-      turn: "white",
+      fen: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
+      turn: "black",
       moveBy: 1718573923,
       url: "https://www.chess.com/game/daily/749532278",
       playerColor: "white",
       opponent: "playertwo",
+      lastMove: ["e2", "e4"],
     });
   });
 
@@ -142,5 +143,73 @@ describe("GamesParser.parse()", () => {
         parse(gameWithFen("rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR x KQkq - 0 1"), "playerone"),
       /fen/i
     );
+  });
+
+  // ---------------------------------------------------------------------------
+  // S1 (Move Trail) — host-side last-move derivation, best-effort PER BOARD
+  // ---------------------------------------------------------------------------
+
+  /** A daily game for playerone carrying the given pgn (with a post-e4 FEN). */
+  const gameWithPgn = (pgn: string): unknown => ({
+    games: [
+      {
+        url: "https://www.chess.com/game/daily/300",
+        fen: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
+        turn: "black",
+        move_by: 9_999_999_999,
+        pgn,
+        white: "https://api.chess.com/pub/player/playerone",
+        black: "https://api.chess.com/pub/player/playertwo",
+        time_class: "daily",
+      },
+    ],
+  });
+
+  it("MT6a: derives DailyGame.lastMove from the game's pgn", () => {
+    const [game] = parse(fixture, "playerone");
+    assert.ok(game);
+    assert.deepStrictEqual(game.lastMove, ["e2", "e4"]);
+  });
+
+  it("MT6b: best-effort per board — a malformed pgn omits the trail without dropping siblings", () => {
+    const payload = {
+      games: [
+        {
+          url: "https://www.chess.com/game/daily/301",
+          fen: "rnbqkbnr/pppppppp/8/8/4P3/8/PPPP1PPP/RNBQKBNR b KQkq e3 0 1",
+          turn: "black",
+          move_by: 1,
+          pgn: "1. e4",
+          white: "https://api.chess.com/pub/player/playerone",
+          black: "https://api.chess.com/pub/player/playertwo",
+          time_class: "daily",
+        },
+        {
+          url: "https://www.chess.com/game/daily/302",
+          fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+          turn: "white",
+          move_by: 2,
+          pgn: "not a real pgn",
+          white: "https://api.chess.com/pub/player/playertwo",
+          black: "https://api.chess.com/pub/player/playerone",
+          time_class: "daily",
+        },
+      ],
+    };
+    const games = parse(payload, "playerone");
+    assert.strictEqual(games.length, 2);
+    const [first, second] = games;
+    assert.ok(first);
+    assert.ok(second);
+    assert.deepStrictEqual(first.lastMove, ["e2", "e4"]);
+    assert.strictEqual("lastMove" in second, false);
+  });
+
+  it("MT6c: a malformed pgn does not throw (unlike a malformed required field)", () => {
+    const payload = gameWithPgn("this is not a pgn at all");
+    assert.doesNotThrow(() => parse(payload, "playerone"));
+    const [game] = parse(payload, "playerone");
+    assert.ok(game);
+    assert.strictEqual("lastMove" in game, false);
   });
 });

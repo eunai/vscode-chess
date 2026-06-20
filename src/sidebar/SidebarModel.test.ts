@@ -221,6 +221,33 @@ describe("SidebarModel.from()", () => {
   it("TN7: transient with no last-known → no turnNotice", () => {
     assert.strictEqual(from({ kind: "transient" }, true, undefined).turnNotice, undefined);
   });
+
+  it("MT7: toBoard copies a game's lastMove; games and placeholders without one omit it", () => {
+    const withTrail = game({
+      url: "https://www.chess.com/game/daily/trail",
+      opponent: "ada",
+      lastMove: ["e2", "e4"],
+    });
+    const board = from(counted([withTrail]), true, undefined).boards.find(
+      (b) => b.opponent === "ada"
+    );
+    assert.ok(board);
+    assert.deepStrictEqual(board.lastMove, ["e2", "e4"]);
+
+    // A game without a lastMove omits the key (never undefined) — matching placeholders.
+    const noTrail = from(
+      counted([game({ url: "https://www.chess.com/game/daily/none", opponent: "bo" })]),
+      true,
+      undefined
+    ).boards.find((b) => b.opponent === "bo");
+    assert.ok(noTrail);
+    assert.strictEqual("lastMove" in noTrail, false);
+
+    // A placeholder board (no username) omits it too.
+    const placeholder = from(undefined, false, undefined).boards[0];
+    assert.ok(placeholder);
+    assert.strictEqual("lastMove" in placeholder, false);
+  });
 });
 
 // Local alias so the M9 fixture reads clearly without importing the contract type.

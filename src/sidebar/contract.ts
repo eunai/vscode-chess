@@ -24,6 +24,12 @@ export interface SidebarBoard {
    * Glow. At most one board in a model is `true`; placeholders are always `false`.
    */
   mostUrgent: boolean;
+  /**
+   * Host-derived [from, to] of the most recent move — drives the Move Trail.
+   * Copied from the game; omitted (never `undefined`) when the game has no usable
+   * `pgn`. Placeholder boards always omit it. The webview only renders it.
+   */
+  lastMove?: [string, string];
 }
 
 /** The single host-authored calm message at the top of the sidebar. */

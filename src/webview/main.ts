@@ -1,5 +1,6 @@
 import { Chessground } from "chessground";
 import type { Config } from "chessground/config";
+import type { Key } from "chessground/types";
 import { planRender, type CardPlan, type NotePlan, type NoticePlan } from "./planRender";
 import type {
   OpenMostUrgentMessage,
@@ -57,7 +58,15 @@ function mountCard(parent: HTMLElement, card: CardPlan): void {
     orientation: card.orientation,
     viewOnly: true,
     coordinates: false,
+    // Chessground defaults highlight.lastMove to true; set it explicitly so the
+    // Move Trail can't silently vanish on a future chessground default change.
+    highlight: { lastMove: true },
   };
+  // The host derived [from, to]; the webview only hands it to chessground (the
+  // single cast site). Absent → no key set → no Move Trail painted.
+  if (card.lastMove) {
+    config.lastMove = card.lastMove as Key[];
+  }
   Chessground(boardEl, config);
 }
 

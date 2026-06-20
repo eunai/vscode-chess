@@ -88,4 +88,14 @@ describe("planRender()", () => {
     assert.strictEqual(plan.cards[0]?.fen, "FEN");
     assert.strictEqual(plan.cards[0]?.orientation, "black");
   });
+
+  it("MT8: carries a board's lastMove to the card; omits it when absent", () => {
+    const plan = planRender({
+      boards: [board({ opponent: "a", lastMove: ["e2", "e4"] }), board({ opponent: "b" })],
+    });
+    assert.deepStrictEqual(plan.cards[0]?.lastMove, ["e2", "e4"]);
+    const second = plan.cards[1];
+    assert.ok(second);
+    assert.strictEqual("lastMove" in second, false);
+  });
 });
