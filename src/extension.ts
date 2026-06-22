@@ -34,13 +34,18 @@ export interface ChessExtensionApi {
   _pollOnceForTest(): Promise<void>;
   _restartForTest(): void;
   _getSidebarPresenterForTest(): SidebarPresenter;
+  /** Override the clock the sidebar uses for the Awaiting Glow ramp (advance time across cycles). */
+  _setNowForTest(fn: () => number): void;
 }
 
 export function activate(context: vscode.ExtensionContext): ChessExtensionApi {
   const logger = vscode.window.createOutputChannel("VS Code Chess", { log: true });
   const item = vscode.window.createStatusBarItem(vscode.StatusBarAlignment.Right, 100);
   const presence = new Presence(item, COMMAND_ID);
-  const presenter = new SidebarPresenter();
+  // Injectable clock so the sidebar's Awaiting Glow recomputes from the current
+  // time on every poll tick; the test API can advance it across cycles.
+  let nowFn: () => number = () => Date.now();
+  const presenter = new SidebarPresenter(() => nowFn());
   presenter.setBoardTheme(readBoardTheme());
   context.subscriptions.push(logger, presence);
 
@@ -180,6 +185,9 @@ export function activate(context: vscode.ExtensionContext): ChessExtensionApi {
     },
     _getSidebarPresenterForTest() {
       return presenter;
+    },
+    _setNowForTest(fn) {
+      nowFn = fn;
     },
   };
 }

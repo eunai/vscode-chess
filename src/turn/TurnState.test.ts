@@ -38,4 +38,23 @@ describe("TurnState.from()", () => {
     assert.strictEqual(result.count, 0);
     assert.strictEqual(result.mostUrgent, undefined);
   });
+
+  it("TT1: on equal moveBy, mostUrgent is the oldest startTime (then url) — deterministic", () => {
+    const younger: DailyGame = {
+      ...base,
+      url: "https://www.chess.com/game/daily/younger",
+      moveBy: 100,
+      startTime: 50,
+    };
+    const older: DailyGame = {
+      ...base,
+      url: "https://www.chess.com/game/daily/older",
+      moveBy: 100,
+      startTime: 20,
+    };
+    // Same soonest moveBy; the older game (smaller startTime) is the open target,
+    // regardless of input order.
+    assert.strictEqual(from([younger, older]).mostUrgent, older);
+    assert.strictEqual(from([older, younger]).mostUrgent, older);
+  });
 });

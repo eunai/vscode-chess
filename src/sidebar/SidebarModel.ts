@@ -1,5 +1,7 @@
 import type { DailyGame } from "../poller/GamesParser";
 import type { PollStatus } from "../poller/Poller";
+import { byAgeThenUrl } from "../poller/dailyGameOrder";
+import { glowIntensity } from "./glow";
 import type { SidebarBoard, SidebarNote, SidebarRenderModel } from "./contract";
 
 /** Trusted host placeholder positions (never parsed from a payload). */
@@ -25,7 +27,7 @@ function emptyPlaceholder(): SidebarBoard {
     orientation: "white",
     opponent: null,
     awaiting: false,
-    mostUrgent: false,
+    glow: 0,
   };
 }
 
@@ -35,7 +37,7 @@ function startingPlaceholder(): SidebarBoard {
     orientation: "white",
     opponent: null,
     awaiting: false,
-    mostUrgent: false,
+    glow: 0,
   };
 }
 
@@ -44,17 +46,18 @@ function isAwaiting(game: DailyGame): boolean {
 }
 
 /**
- * Map a Daily Game to a board. `mostUrgentUrl` is the `url` of the host's Most
- * Urgent Game; the board is flagged by `url` identity (never by list position),
- * so the correct single board glows even when two games share a `moveBy`.
+ * Map a Daily Game to a board, computing the **Awaiting Glow** intensity from the
+ * current time: an awaiting game carries `glowIntensity(move_by − now)` (stronger
+ * as its deadline nears); a non-awaiting game carries `0`. `now` (ms) is injected
+ * so the pure model never reads the clock.
  */
-function toBoard(game: DailyGame, mostUrgentUrl: string | undefined): SidebarBoard {
+function toBoard(game: DailyGame, now: number): SidebarBoard {
   const board: SidebarBoard = {
     fen: game.fen,
     orientation: game.playerColor,
     opponent: game.opponent,
     awaiting: isAwaiting(game),
-    mostUrgent: game.url === mostUrgentUrl,
+    glow: isAwaiting(game) ? glowIntensity(game.moveBy, now) : 0,
   };
   // Conditional-omit: carry the Move Trail only when present, so a no-move board
   // is structurally identical to a placeholder (never `lastMove: undefined`).
@@ -65,30 +68,33 @@ function toBoard(game: DailyGame, mostUrgentUrl: string | undefined): SidebarBoa
 }
 
 /**
- * Order Daily Games for the sidebar: awaiting games first by soonest `moveBy`,
- * then the rest by `url` ascending — a stable identity that keeps a non-awaiting
- * board in the same slot between cycles (calm, no churn). The Most Urgent Game
- * (`mostUrgentUrl`) carries the Urgent Glow regardless of where it sorts.
+ * Order Daily Games for the sidebar: awaiting games first, then the rest; **within
+ * each group, oldest `startTime` first** (then `url`, missing-`startTime` last) via
+ * the shared {@link byAgeThenUrl}. A board keeps its slot between cycles and only
+ * moves when a game ends (lower boards shift up) or a new one starts (it joins the
+ * bottom of its group) — calm, no churn. Each board's Awaiting Glow is computed
+ * from `now`.
  */
-function orderBoards(games: DailyGame[], mostUrgentUrl: string | undefined): SidebarBoard[] {
-  const awaiting = games.filter(isAwaiting).sort((a, b) => a.moveBy - b.moveBy);
-  const others = games
-    .filter((g) => !isAwaiting(g))
-    .sort((a, b) => (a.url < b.url ? -1 : a.url > b.url ? 1 : 0));
-  return [...awaiting, ...others].map((game) => toBoard(game, mostUrgentUrl));
+function orderBoards(games: DailyGame[], now: number): SidebarBoard[] {
+  const awaiting = games.filter(isAwaiting).sort(byAgeThenUrl);
+  const others = games.filter((g) => !isAwaiting(g)).sort(byAgeThenUrl);
+  return [...awaiting, ...others].map((game) => toBoard(game, now));
 }
 
 /**
  * Map a poll status (or its absence) plus username configuration to the sidebar
  * render model. The single host-side authority: it owns ordering, orientation,
- * opponent labels, the awaiting marker, placeholder boards, and notes. The
- * sidebar always renders at least one board (ADR 0004); `lastKnownBoards` is the
- * calm fallback re-sent on a transient failure.
+ * opponent labels, the Awaiting Glow, placeholder boards, and notes. The sidebar
+ * always renders at least one board (ADR 0004). `lastKnownGames` are the last
+ * successful Daily Games; a transient failure **rebuilds** boards from them at the
+ * current `now` — so the glow keeps ramping while disconnected — rather than
+ * re-sending stale boards.
  */
 function baseModel(
   status: PollStatus | undefined,
   usernameConfigured: boolean,
-  lastKnownBoards: SidebarBoard[] | undefined
+  lastKnownGames: DailyGame[] | undefined,
+  now: number
 ): SidebarRenderModel {
   if (!usernameConfigured) {
     return { boards: [emptyPlaceholder()], note: SETUP_NOTE };
@@ -101,14 +107,19 @@ function baseModel(
     case "counted":
       return status.games.length === 0
         ? { boards: [startingPlaceholder()] }
-        : { boards: orderBoards(status.games, status.mostUrgent?.url) };
+        : { boards: orderBoards(status.games, now) };
     case "notFound":
       return { boards: [emptyPlaceholder()], note: WARNING_NOTE };
     case "transient": {
+      // `undefined` last-known = no successful poll yet (or cleared by notFound /
+      // username change) → empty placeholder. An empty array = a zero-games success
+      // → the calm starting placeholder, matching the `counted([])` branch. A
+      // non-empty array rebuilds the boards at the current `now` (glow keeps ramping).
+      if (lastKnownGames === undefined) {
+        return { boards: [emptyPlaceholder()], note: RETRY_NOTE };
+      }
       const boards =
-        lastKnownBoards !== undefined && lastKnownBoards.length > 0
-          ? lastKnownBoards
-          : [emptyPlaceholder()];
+        lastKnownGames.length > 0 ? orderBoards(lastKnownGames, now) : [startingPlaceholder()];
       return { boards, note: RETRY_NOTE };
     }
   }
@@ -116,18 +127,19 @@ function baseModel(
 
 /**
  * The sidebar render model, with the bottom Turn Notice attached. The Turn Count
- * is derived from the boards the webview will actually render — the number
- * carrying the Awaiting Marker — so the notice, the markers, and the Presence
- * all mirror one polling result. On a transient failure the re-sent last-known
- * boards carry their awaiting flags, so the count is preserved without a
- * separate signal. The notice is omitted entirely when no game awaits a move.
+ * is the number of awaiting boards the webview will render, so the notice, the
+ * glow, and the Presence all mirror one polling result. On a transient failure the
+ * boards are rebuilt from the last-known games (awaiting flags preserved), so the
+ * count is preserved. `now` (ms) is injected for the Awaiting Glow ramp; the notice
+ * is omitted entirely when no game awaits a move.
  */
 export function from(
   status: PollStatus | undefined,
   usernameConfigured: boolean,
-  lastKnownBoards: SidebarBoard[] | undefined
+  lastKnownGames: DailyGame[] | undefined,
+  now: number
 ): SidebarRenderModel {
-  const model = baseModel(status, usernameConfigured, lastKnownBoards);
+  const model = baseModel(status, usernameConfigured, lastKnownGames, now);
   const count = model.boards.filter((board) => board.awaiting).length;
   return count > 0 ? { ...model, turnNotice: { count } } : model;
 }

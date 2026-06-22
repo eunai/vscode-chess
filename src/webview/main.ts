@@ -34,12 +34,12 @@ function mountCard(parent: HTMLElement, card: CardPlan): void {
   if (card.awaiting) {
     classes.push("card--awaiting");
   }
-  if (card.urgent) {
-    // The single Most Urgent Game's board — the Urgent Glow, layered on the
-    // Awaiting Marker (the most urgent game is always awaiting).
-    classes.push("card--urgent");
-  }
   cardEl.className = classes.join(" ");
+  // Awaiting Glow: the host-authored intensity → a CSS custom property the
+  // stylesheet maps to the halo's opacity. The webview computes nothing.
+  if (card.glow > 0) {
+    cardEl.style.setProperty("--glow", String(card.glow));
+  }
 
   if (card.label !== null) {
     const label = document.createElement("div");

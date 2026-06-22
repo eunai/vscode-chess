@@ -1,4 +1,5 @@
 import type { DailyGame } from "../poller/GamesParser";
+import { byMoveByThenAge } from "../poller/dailyGameOrder";
 
 export interface TurnStateResult {
   count: number;
@@ -10,6 +11,8 @@ export function from(games: DailyGame[]): TurnStateResult {
   if (awaiting.length === 0) {
     return { count: 0, mostUrgent: undefined };
   }
-  const mostUrgent = awaiting.reduce((a, b) => (a.moveBy <= b.moveBy ? a : b));
+  // Soonest move_by; ties broken deterministically (oldest startTime, then url) —
+  // sorting (not a seedless reduce) makes the pick input-order-independent.
+  const mostUrgent = [...awaiting].sort(byMoveByThenAge)[0];
   return { count: awaiting.length, mostUrgent };
 }

@@ -14,6 +14,11 @@ const awaitingGame: DailyGame = {
   playerColor: "white",
 };
 
+const HOUR = 3_600_000;
+const T1 = 1_700_000_000_000;
+/** An awaiting game whose deadline is T1 + 40h — inside the Awaiting Glow ramp window at T1. */
+const awaitingSoon: DailyGame = { ...awaitingGame, moveBy: (T1 + 40 * HOUR) / 1000 };
+
 const counted = (games: DailyGame[]): PollStatus => ({
   kind: "counted",
   games,
@@ -152,5 +157,22 @@ describe("SidebarPresenter", () => {
       "editor",
       "become-visible carries the latest boardTheme"
     );
+  });
+
+  it("PR-ADV: identical games at an advancing now post a model whose awaiting glow rises (proof #1, render path)", () => {
+    let t = T1;
+    const presenter = new SidebarPresenter(() => t);
+    const poster = new FakePoster();
+    presenter.attach(poster);
+    presenter.ready();
+
+    presenter.update(counted([awaitingSoon]), true);
+    const glow1 = poster.last!.model.boards[0]!.glow;
+
+    t = T1 + 10 * HOUR; // 10h closer to the deadline; identical games re-posted
+    presenter.update(counted([awaitingSoon]), true);
+    const glow2 = poster.last!.model.boards[0]!.glow;
+
+    assert.ok(glow2 > glow1, `posted glow should rise as the deadline nears: ${glow2} > ${glow1}`);
   });
 });

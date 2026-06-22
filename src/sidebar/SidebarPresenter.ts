@@ -16,11 +16,20 @@ export interface Poster {
  * freshly-opened or rebuilt webview is never blank (ADR 0004).
  */
 export class SidebarPresenter {
-  private readonly store = new SidebarStore();
+  private readonly store: SidebarStore;
   private poster: Poster | undefined;
   private visible = false;
   /** The active Board Theme, injected by the host (vscode-free here). */
   private boardTheme: BoardTheme = "editor";
+
+  /**
+   * `now` (default `Date.now`) is injected into the {@link SidebarStore} so the
+   * Awaiting Glow recomputes from the current clock on every poll tick — including
+   * a `304`-driven re-emit and a transient re-send. Tests pass a fake clock.
+   */
+  constructor(now: () => number = () => Date.now()) {
+    this.store = new SidebarStore(now);
+  }
 
   /** A webview view resolved — wire its post channel. */
   attach(poster: Poster): void {

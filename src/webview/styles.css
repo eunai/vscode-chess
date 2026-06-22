@@ -94,26 +94,27 @@ body {
   display: flex;
   flex-direction: column;
   gap: 4px;
-  padding-left: 5px;
-  border-left: 3px solid transparent; /* reserve the Awaiting Marker gutter — no layout shift */
+  border-radius: 4px;
 }
+
+/* The Awaiting Glow — one calm STATIC halo on EVERY board awaiting the Player's
+   move, replacing the former separate your-turn left-accent + single-board
+   most-urgent halo. Its strength ramps with the host-authored `--glow` (in [0,1],
+   stronger as the move deadline nears) by scaling the focusBorder mix percentage —
+   by PRESENCE, never by darkening, so a faint glow stays legible on light AND dark
+   themes (the 0.8.1 lesson). No animation, no alarm color. A non-awaiting board
+   sets no `--glow` and shows no halo. Max mix is 40% (light) / 20% (dark) — the
+   previously-accepted single-glow strength, now reached only at full intensity. */
 .card--awaiting {
-  border-left-color: var(--vscode-focusBorder);
+  box-shadow: 0 0 1px 10px
+    color-mix(in srgb, var(--vscode-focusBorder) calc(var(--glow, 1) * 40%), transparent);
+}
+body.vscode-dark .card--awaiting {
+  box-shadow: 0 0 1px 10px
+    color-mix(in srgb, var(--vscode-focusBorder) calc(var(--glow, 1) * 20%), transparent);
 }
 .card--awaiting .card__label {
   font-weight: 600;
-}
-
-/* The Urgent Glow — a calm STATIC halo on the single Most Urgent Game's board,
-   layered over its Awaiting Marker. Theme-driven (focusBorder), never an alarm
-   color, never animated. Tuned: 1px blur, 10px spread; the focusBorder is mixed
-   at 40% on light themes and a softer 20% on dark backgrounds. */
-.card--urgent {
-  border-radius: 4px;
-  box-shadow: 0 0 1px 10px color-mix(in srgb, var(--vscode-focusBorder) 40%, transparent);
-}
-body.vscode-dark .card--urgent {
-  box-shadow: 0 0 1px 10px color-mix(in srgb, var(--vscode-focusBorder) 20%, transparent);
 }
 
 .card__label {
@@ -134,8 +135,8 @@ body.vscode-dark .card--urgent {
    gold (#b58900): the earlier theme-bound charts.orange resolved to a muddy olive
    over many themes' board squares, so the warm gold is now pinned rather than
    theme-derived. At 50% it stays calm and lets the square and the pieces read
-   through. Deliberately distinct from the cool focusBorder Awaiting Marker /
-   Urgent Glow — now reliably so across every theme; informational, not urgency.
+   through. Deliberately distinct from the cool focusBorder Awaiting Glow — now
+   reliably so across every theme; informational, not urgency.
    This override holds only while ./styles.css stays the LAST CSS import in
    main.ts (equal specificity, later source wins). */
 cg-board square.last-move {

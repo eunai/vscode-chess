@@ -1054,7 +1054,7 @@ describe("Poller", () => {
     poller.stop();
   });
 
-  it("K5: 304 (unchanged) emits nothing via onStatus — last-known preserved", async () => {
+  it("PK2: a 304 before any successful poll (no retained games) emits nothing via onStatus", async () => {
     const clock = new FakeClock();
     const fetchFn = (): Promise<Response> =>
       Promise.resolve(
@@ -1077,7 +1077,122 @@ describe("Poller", () => {
     poller.start();
     await flush();
 
-    assert.strictEqual(statuses.length, 0, "304 must not emit any onStatus call");
+    assert.strictEqual(
+      statuses.length,
+      0,
+      "a 304 with no prior 200 must not emit any onStatus call"
+    );
+
+    poller.stop();
+  });
+
+  /** A daily-game payload for playerone (one game awaiting white). */
+  const onePlayeroneGame = JSON.stringify({
+    games: [
+      {
+        time_class: "daily",
+        fen: GAME.fen,
+        turn: "white",
+        move_by: GAME.moveBy,
+        url: GAME.url,
+        white: "https://api.chess.com/pub/player/playerone",
+        black: "https://api.chess.com/pub/player/playertwo",
+      },
+    ],
+  });
+
+  it("PK1: a 304 after a prior 200 re-emits onStatus 'counted' carrying the retained games", async () => {
+    const clock = new FakeClock();
+    let callCount = 0;
+    const fetchFn = (): Promise<Response> => {
+      callCount++;
+      if (callCount === 1) {
+        return Promise.resolve(
+          new Response(onePlayeroneGame, {
+            status: 200,
+            headers: { ETag: '"e1"', "Cache-Control": "max-age=60" },
+          })
+        );
+      }
+      return Promise.resolve(
+        new Response(null, { status: 304, headers: { "Cache-Control": "max-age=60" } })
+      );
+    };
+
+    const statuses: PollStatus[] = [];
+    const poller = new Poller({
+      username: "playerone",
+      fetchFn,
+      onResult: () => undefined,
+      onStatus: (s) => statuses.push(s),
+      logger: makeLogger(),
+      clock,
+    });
+
+    poller.start();
+    await flush();
+    assert.strictEqual(statuses.length, 1, "cycle 1 (200) emits counted");
+
+    clock.tick(); // fire the scheduled second cycle on the SAME poller → 304
+    await flush();
+
+    assert.strictEqual(statuses.length, 2, "the 304 re-emits a status so the glow can recompute");
+    const second = statuses[1];
+    assert.ok(second);
+    assert.strictEqual(second.kind, "counted", "the 304 re-emits a counted");
+    if (second.kind === "counted") {
+      assert.strictEqual(second.games.length, 1, "it carries the retained games");
+      assert.strictEqual(
+        second.mostUrgent?.url,
+        GAME.url,
+        "mostUrgent recomputed from the retained games"
+      );
+    }
+
+    poller.stop();
+  });
+
+  it("PK3: a 304 after a 404 re-emits no stale counted (notFound cleared the retained games)", async () => {
+    const clock = new FakeClock();
+    let callCount = 0;
+    const fetchFn = (): Promise<Response> => {
+      callCount++;
+      if (callCount === 1) {
+        return Promise.resolve(
+          new Response(onePlayeroneGame, {
+            status: 200,
+            headers: { ETag: '"e1"', "Cache-Control": "max-age=60" },
+          })
+        );
+      }
+      if (callCount === 2) return Promise.resolve(new Response(null, { status: 404 }));
+      return Promise.resolve(
+        new Response(null, { status: 304, headers: { "Cache-Control": "max-age=60" } })
+      );
+    };
+
+    const statuses: PollStatus[] = [];
+    const poller = new Poller({
+      username: "playerone",
+      fetchFn,
+      onResult: () => undefined,
+      onStatus: (s) => statuses.push(s),
+      logger: makeLogger(),
+      clock,
+    });
+
+    poller.start();
+    await flush(); // 1: 200 → counted
+    clock.tick();
+    await flush(); // 2: 404 → notFound (clears lastGames)
+    clock.tick();
+    await flush(); // 3: 304 → no retained games → no emit
+
+    assert.deepStrictEqual(
+      statuses.map((s) => s.kind),
+      ["counted", "notFound"],
+      "the trailing 304 emits nothing — no stale counted for a Player who 404'd"
+    );
 
     poller.stop();
   });

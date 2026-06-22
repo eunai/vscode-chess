@@ -44,8 +44,50 @@ describe("GamesParser.parse()", () => {
       url: "https://www.chess.com/game/daily/749532278",
       playerColor: "white",
       opponent: "playertwo",
+      startTime: 1718400000,
       lastMove: ["e2", "e4"],
     });
+  });
+
+  it("SG2: a daily game with no start_time omits startTime (best-effort, never thrown)", () => {
+    const payload = {
+      games: [
+        {
+          url: "https://www.chess.com/game/daily/400",
+          fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+          turn: "white",
+          move_by: 9_999_999_999,
+          white: "https://api.chess.com/pub/player/playerone",
+          black: "https://api.chess.com/pub/player/playertwo",
+          time_class: "daily",
+        },
+      ],
+    };
+    assert.doesNotThrow(() => parse(payload, "playerone"));
+    const [game] = parse(payload, "playerone");
+    assert.ok(game);
+    assert.strictEqual("startTime" in game, false);
+  });
+
+  it("SG3: a non-number start_time is ignored (omitted), no throw", () => {
+    const payload = {
+      games: [
+        {
+          url: "https://www.chess.com/game/daily/401",
+          fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+          turn: "white",
+          move_by: 9_999_999_999,
+          start_time: "soon",
+          white: "https://api.chess.com/pub/player/playerone",
+          black: "https://api.chess.com/pub/player/playertwo",
+          time_class: "daily",
+        },
+      ],
+    };
+    assert.doesNotThrow(() => parse(payload, "playerone"));
+    const [game] = parse(payload, "playerone");
+    assert.ok(game);
+    assert.strictEqual("startTime" in game, false);
   });
 
   it("resolves playerColor correctly with case-insensitive username match", () => {

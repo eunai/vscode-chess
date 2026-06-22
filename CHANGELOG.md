@@ -7,6 +7,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.9.0] - 2026-06-22
+
+### Changed
+
+- **Sidebar order is now stable and oldest-first.** Each board keeps its place — your
+  longest-running game stays at the top, the newest at the bottom — instead of reshuffling as turns
+  change. A board only moves when a game ends (the ones below shift up) or a new game starts (it
+  joins the bottom). Games awaiting your move still group above the rest.
+- **The your-turn highlight now shows urgency.** Every game awaiting your move carries one calm glow
+  whose strength grows as that game's move deadline approaches, so the most time-pressed game — the
+  one the Turn Notice opens when clicked — stands out the most. This replaces the previous separate
+  your-turn marker and single most-urgent halo with one consistent, theme-safe signal.
+
 ## [0.8.1] - 2026-06-21
 
 ### Changed
@@ -178,7 +191,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   urgent game in the browser.
 - GPL-3.0-or-later license.
 
-[Unreleased]: https://github.com/eunai/vscode-chess/compare/v0.8.1...HEAD
+[Unreleased]: https://github.com/eunai/vscode-chess/compare/v0.9.0...HEAD
+[0.9.0]: https://github.com/eunai/vscode-chess/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/eunai/vscode-chess/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/eunai/vscode-chess/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/eunai/vscode-chess/compare/v0.6.0...v0.7.0

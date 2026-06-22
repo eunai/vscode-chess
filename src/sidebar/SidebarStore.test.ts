@@ -56,19 +56,17 @@ describe("SidebarStore", () => {
     assert.strictEqual(model.note?.kind, "retry");
   });
 
-  it("UG4: transient re-sends last-known boards with the Urgent Glow flag intact", () => {
+  it("UG4 → glow: a transient rebuild keeps every awaiting board glowing (recomputed from games)", () => {
     const store = new SidebarStore();
     const alice: DailyGame = {
       ...awaitingGame,
       url: "https://www.chess.com/game/daily/a",
       opponent: "alice",
-      moveBy: 100,
     };
     const bob: DailyGame = {
       ...awaitingGame,
       url: "https://www.chess.com/game/daily/b",
       opponent: "bob",
-      moveBy: 200,
     };
     const status: PollStatus = {
       kind: "counted",
@@ -77,13 +75,42 @@ describe("SidebarStore", () => {
       mostUrgent: alice,
     };
 
-    store.update(status, true); // last-known boards carry the mostUrgent flag
-    const model = store.update({ kind: "transient" }, true); // re-send must preserve it
+    store.update(status, true);
+    const model = store.update({ kind: "transient" }, true); // rebuild from games, not a stale re-send
 
     const aliceBoard = model.boards.find((b) => b.opponent === "alice");
-    assert.strictEqual(aliceBoard?.mostUrgent, true, "glow persists across a transient blip");
-    assert.strictEqual(model.boards.filter((b) => b.mostUrgent).length, 1);
+    assert.ok(aliceBoard);
+    assert.ok(aliceBoard.glow > 0, "glow persists across a transient blip");
+    assert.strictEqual(model.boards.filter((b) => b.awaiting).length, 2);
     assert.strictEqual(model.note?.kind, "retry");
+  });
+
+  // --- S2/S3: glow recomputes from a fresh injected `now` on every tick ---
+  const HOUR = 3_600_000;
+  const T1 = 1_700_000_000_000;
+  /** An awaiting game whose deadline is T1 + 40h — inside the ramp window at T1. */
+  const awaitingSoon: DailyGame = { ...awaitingGame, moveBy: (T1 + 40 * HOUR) / 1000 };
+
+  it("ST-COUNTED-ADV: a repeat counted (same games) at a later now → strictly higher awaiting glow", () => {
+    let t = T1;
+    const store = new SidebarStore(() => t);
+    const glow1 = store.update(counted([awaitingSoon]), true).boards[0]!.glow;
+    t = T1 + 10 * HOUR; // 10h closer to the deadline
+    const glow2 = store.update(counted([awaitingSoon]), true).boards[0]!.glow;
+    assert.ok(glow2 > glow1, `${glow2} should exceed ${glow1} as the deadline nears`);
+  });
+
+  it("ST-ADV: a transient rebuilds from last-known games at a fresh now → glow ramps while disconnected", () => {
+    let t = T1;
+    const store = new SidebarStore(() => t);
+    const glow1 = store.update(counted([awaitingSoon]), true).boards[0]!.glow;
+    t = T1 + 10 * HOUR;
+    const model = store.update({ kind: "transient" }, true);
+    assert.strictEqual(model.note?.kind, "retry");
+    assert.ok(
+      model.boards[0]!.glow > glow1,
+      "glow keeps ramping from the known deadline while disconnected"
+    );
   });
 
   it("clears last-known when the username is removed", () => {

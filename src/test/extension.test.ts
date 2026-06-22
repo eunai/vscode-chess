@@ -80,6 +80,29 @@ function fetchStatus(status: number): typeof fetch {
   return () => Promise.resolve(new Response(null, { status }));
 }
 
+/** A multi-game daily payload for playerone; each game's opponent is `opp-<id>`. */
+function multiPayload(
+  games: Array<{ id: string; turn: "white" | "black"; moveBy: number; startTime?: number }>
+): string {
+  return JSON.stringify({
+    games: games.map((g) => ({
+      url: `https://www.chess.com/game/daily/${g.id}`,
+      move_by: g.moveBy,
+      turn: g.turn,
+      time_class: "daily",
+      ...(g.startTime !== undefined ? { start_time: g.startTime } : {}),
+      white: "https://api.chess.com/pub/player/playerone",
+      black: `https://api.chess.com/pub/player/opp-${g.id}`,
+      fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+    })),
+  });
+}
+
+// Fixed clock for deterministic Awaiting Glow in the integration proofs. move_by
+// is Unix seconds, built relative to NOW_S.
+const NOW_MS = 1_700_000_000_000;
+const NOW_S = NOW_MS / 1000;
+
 async function getApi(): Promise<ChessExtensionApi> {
   const ext = vscode.extensions.getExtension<ChessExtensionApi>(EXTENSION_ID);
   assert.ok(ext, `extension ${EXTENSION_ID} not found`);
@@ -115,6 +138,7 @@ describe("vscode-chess extension (integration)", () => {
   afterEach(async () => {
     await setUsername("");
     await setBoardTheme(undefined);
+    api._setNowForTest(() => Date.now()); // restore the real clock for the next test
   });
 
   // -------------------------------------------------------------------------
@@ -358,7 +382,7 @@ describe("vscode-chess extension (integration)", () => {
     assert.equal(last.model.turnNotice?.count, 1, "the Turn Notice mirrors the awaiting count");
   });
 
-  it("UG6: a counted poll posts a render whose model has exactly one Urgent Glow board", async () => {
+  it("UG6: a counted poll posts a render whose awaiting board carries the Awaiting Glow (glow > 0)", async () => {
     const posts: RenderMessage[] = [];
     const presenter = api._getSidebarPresenterForTest();
     presenter.attach({ postMessage: (message) => posts.push(message) });
@@ -370,10 +394,151 @@ describe("vscode-chess extension (integration)", () => {
 
     const last = posts[posts.length - 1];
     assert.ok(last, "the host posted a render message");
-    const urgent = last.model.boards.filter((b) => b.mostUrgent);
-    assert.equal(urgent.length, 1, "exactly one board carries the Urgent Glow");
-    assert.equal(urgent[0]?.opponent, "playertwo", "the awaiting Most Urgent Game glows");
-    assert.equal(urgent[0]?.awaiting, true, "the Urgent Glow is layered on the Awaiting Marker");
+    const glowing = last.model.boards.filter((b) => b.glow > 0);
+    assert.equal(glowing.length, 1, "the one awaiting board carries the Awaiting Glow");
+    assert.equal(glowing[0]?.opponent, "playertwo", "the awaiting board glows");
+    assert.equal(glowing[0]?.awaiting, true);
+  });
+
+  it("UG6′: with ≥2 awaiting games every awaiting board glows, and the soonest deadline glows strongest", async () => {
+    const posts: RenderMessage[] = [];
+    const presenter = api._getSidebarPresenterForTest();
+    presenter.attach({ postMessage: (m) => posts.push(m) });
+    presenter.ready();
+
+    api._setNowForTest(() => NOW_MS);
+    api._setFetchForTest(
+      fetchReturning(
+        multiPayload([
+          { id: "soon", turn: "white", moveBy: NOW_S + 2 * 3600, startTime: 100 },
+          { id: "later", turn: "white", moveBy: NOW_S + 40 * 3600, startTime: 200 },
+        ])
+      )
+    );
+    await setUsername("playerone");
+    await api._pollOnceForTest();
+
+    const last = posts[posts.length - 1]!;
+    const awaiting = last.model.boards.filter((b) => b.awaiting);
+    assert.equal(awaiting.length, 2, "both games await the player");
+    assert.ok(
+      awaiting.every((b) => b.glow > 0),
+      "every awaiting board carries the Awaiting Glow"
+    );
+    const soon = last.model.boards.find((b) => b.opponent === "opp-soon")!;
+    const later = last.model.boards.find((b) => b.opponent === "opp-later")!;
+    assert.ok(soon.glow > later.glow, "the soonest-deadline board glows strongest");
+  });
+
+  it("I2: a board that flips to the opponent's turn loses its glow (proof #2, wiring)", async () => {
+    const posts: RenderMessage[] = [];
+    const presenter = api._getSidebarPresenterForTest();
+    presenter.attach({ postMessage: (m) => posts.push(m) });
+    presenter.ready();
+
+    api._setNowForTest(() => NOW_MS);
+    api._setFetchForTest(
+      fetchReturning(
+        multiPayload([{ id: "g", turn: "white", moveBy: NOW_S + 3600, startTime: 100 }])
+      )
+    );
+    await setUsername("playerone");
+    await api._pollOnceForTest();
+    let board = posts[posts.length - 1]!.model.boards.find((b) => b.opponent === "opp-g")!;
+    assert.ok(board.glow > 0, "awaiting → glows");
+
+    // Same game, now the opponent's turn.
+    api._setFetchForTest(
+      fetchReturning(
+        multiPayload([{ id: "g", turn: "black", moveBy: NOW_S + 3600, startTime: 100 }])
+      )
+    );
+    await api._pollOnceForTest();
+    board = posts[posts.length - 1]!.model.boards.find((b) => b.opponent === "opp-g")!;
+    assert.equal(board.awaiting, false);
+    assert.equal(board.glow, 0, "non-awaiting → no glow");
+  });
+
+  it("I3: when a game ends, the survivors shift up in oldest-first order (proof #3, wiring, by start_time)", async () => {
+    const posts: RenderMessage[] = [];
+    const presenter = api._getSidebarPresenterForTest();
+    presenter.attach({ postMessage: (m) => posts.push(m) });
+    presenter.ready();
+
+    api._setNowForTest(() => NOW_MS);
+    // start_time order is the INVERSE of the url order, so a pass proves age-ordering, not the url fallback.
+    api._setFetchForTest(
+      fetchReturning(
+        multiPayload([
+          { id: "g1", turn: "white", moveBy: NOW_S + 3600, startTime: 300 },
+          { id: "g2", turn: "white", moveBy: NOW_S + 3600, startTime: 200 },
+          { id: "g3", turn: "white", moveBy: NOW_S + 3600, startTime: 100 },
+        ])
+      )
+    );
+    await setUsername("playerone");
+    await api._pollOnceForTest();
+    assert.deepEqual(
+      posts[posts.length - 1]!.model.boards.map((b) => b.opponent),
+      ["opp-g3", "opp-g2", "opp-g1"],
+      "oldest start_time first (inverse of url order)"
+    );
+
+    // g2 ends → drops from the payload; g3 and g1 keep their relative order.
+    api._setFetchForTest(
+      fetchReturning(
+        multiPayload([
+          { id: "g1", turn: "white", moveBy: NOW_S + 3600, startTime: 300 },
+          { id: "g3", turn: "white", moveBy: NOW_S + 3600, startTime: 100 },
+        ])
+      )
+    );
+    await api._pollOnceForTest();
+    assert.deepEqual(
+      posts[posts.length - 1]!.model.boards.map((b) => b.opponent),
+      ["opp-g3", "opp-g1"],
+      "the survivor shifts up; order preserved"
+    );
+  });
+
+  it("I4: a newly-started game (newer start_time) inserts at the bottom of its group (proof #4, wiring)", async () => {
+    const posts: RenderMessage[] = [];
+    const presenter = api._getSidebarPresenterForTest();
+    presenter.attach({ postMessage: (m) => posts.push(m) });
+    presenter.ready();
+
+    api._setNowForTest(() => NOW_MS);
+    api._setFetchForTest(
+      fetchReturning(
+        multiPayload([
+          { id: "m", turn: "white", moveBy: NOW_S + 3600, startTime: 100 },
+          { id: "z", turn: "white", moveBy: NOW_S + 3600, startTime: 200 },
+        ])
+      )
+    );
+    await setUsername("playerone");
+    await api._pollOnceForTest();
+    assert.deepEqual(
+      posts[posts.length - 1]!.model.boards.map((b) => b.opponent),
+      ["opp-m", "opp-z"]
+    );
+
+    // A new game "aaa" — its url sorts FIRST, but its start_time is newest, so it lands LAST.
+    api._setFetchForTest(
+      fetchReturning(
+        multiPayload([
+          { id: "m", turn: "white", moveBy: NOW_S + 3600, startTime: 100 },
+          { id: "z", turn: "white", moveBy: NOW_S + 3600, startTime: 200 },
+          { id: "aaa", turn: "white", moveBy: NOW_S + 3600, startTime: 300 },
+        ])
+      )
+    );
+    await api._pollOnceForTest();
+    assert.deepEqual(
+      posts[posts.length - 1]!.model.boards.map((b) => b.opponent),
+      ["opp-m", "opp-z", "opp-aaa"],
+      "the newest-start_time game is last, despite its url sorting first"
+    );
   });
 
   // -------------------------------------------------------------------------

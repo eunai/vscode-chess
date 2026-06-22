@@ -6,21 +6,23 @@ A VS Code extension that monitors a single player's [Chess.com](https://www.ches
 Daily (correspondence) games and calmly signals when it is their turn to move, with a
 link to open the most urgent game in the browser.
 
-> **Status:** Active (`0.8.1`). This patch pins the **Move Trail** last-move highlight to a fixed
-> warm gold, so it reads consistently across every color theme.
+> **Status:** Active (`0.9.0`). Sidebar boards now hold a stable, oldest-first order, and a single
+> calm **Awaiting Glow** marks every game awaiting your move — deepening as its move deadline nears.
 
 ## Features
 
 - **Turn awareness** — watches the player's ongoing Daily games and surfaces how many
   await a move.
 - **Sidebar with live boards** _(new in 0.4.0)_ — a Chess view in the activity bar renders a
-  board for each ongoing Daily game, oriented to your color and labelled with your opponent;
-  games awaiting your move sort to the top with a calm marker.
+  board for each ongoing Daily game, oriented to your color and labelled with your opponent.
+  _(0.9.0)_ Boards hold a stable, oldest-first order — your longest-running game stays on top — and
+  only move when a game ends or a new one begins; games awaiting your move group above the rest.
 - **Turn Notice** _(new in 0.5.0)_ — when it's your turn, a calm bar pinned to the bottom of
   the sidebar shows how many games await your move; click it to open the most urgent one. It
   mirrors the status-bar count and stays in sync, even while reconnecting.
-- **Urgent Glow** _(new in 0.6.0)_ — the board of your single most urgent Daily game carries a
-  calm glow, layered on the awaiting marker, so the soonest-deadline game stands out at a glance.
+- **Awaiting Glow** _(reworked in 0.9.0)_ — every game awaiting your move carries one calm glow that
+  deepens as its move deadline approaches, so the most time-pressed game — the one a click opens —
+  stands out at a glance, legible on light and dark themes alike.
 - **Move Trail** _(new in 0.7.0)_ — each board highlights the two squares of the most recent move
   (where the last piece came from and where it landed) with a calm, warm tint.
 - **Board Theme** _(new in 0.8.0)_ — the board squares wear your active VS Code color theme, while the
@@ -82,14 +84,14 @@ and a bare `♟` when none await. Before you've configured a username it prompts
 have a proof of life that the extension is running.
 
 Open the **Chess** view from the activity bar to see a live board for each of your Daily
-games — oriented to your color, with the games awaiting your move sorted to the top. When it's
-your turn, a **Turn Notice** bar appears at the bottom of that view with the count; clicking it
-opens the most urgent game.
+games — oriented to your color, in a stable oldest-first order with the games awaiting your move
+grouped on top. When it's your turn, a **Turn Notice** bar appears at the bottom of that view with
+the count; clicking it opens the most urgent game.
 
 ## ♟️ Roadmap
 
-`0.8.1` pins the **Move Trail** last-move highlight to a fixed warm gold, consistent across every
-color theme. Coming next:
+`0.9.0` gives the sidebar a stable oldest-first order and a single deadline-intensity **Awaiting
+Glow** on every game awaiting your move. Coming next:
 
 - **Calm under failure** — polling that never blanks out on a network blip.
 

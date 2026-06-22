@@ -53,6 +53,14 @@ export class Poller {
   private abortController: AbortController | undefined;
   private conditional: ConditionalParams = {};
   private lastKnownDelay = MIN_DELAY_MS;
+  /**
+   * The games from the most recent successful parse — re-emitted on a `304` so the
+   * sidebar recomputes the time-based Awaiting Glow on every tick (it would
+   * otherwise freeze across the hours a daily game sits on `304`). Per-instance
+   * (reset by a fresh `start()`/new Poller on a username change); cleared on a
+   * `notFound` so a stale Player's games can never be re-emitted.
+   */
+  private lastGames: DailyGame[] | undefined;
 
   constructor(options: PollerOptions) {
     this.username = options.username;
@@ -93,6 +101,7 @@ export class Poller {
 
       if (outcome.type === "success") {
         const games = parse(JSON.parse(outcome.rawJson) as unknown, this.username);
+        this.lastGames = games;
         const result = from(games);
         // Commit ETag and cadence only after parsing succeeds
         this.conditional = { etag: outcome.etag };
@@ -115,8 +124,22 @@ export class Poller {
             ? Math.max(outcome.maxAge, MIN_DELAY_MS)
             : this.lastKnownDelay;
         this.lastKnownDelay = delay;
+        // Re-emit the retained games as a fresh `counted` so the host rebuilds the
+        // render model at the current time and the Awaiting Glow keeps ramping —
+        // no new network I/O. Skipped before any successful poll (no `lastGames`).
+        if (this.lastGames !== undefined) {
+          const result = from(this.lastGames);
+          this.onStatus?.({
+            kind: "counted",
+            games: this.lastGames,
+            count: result.count,
+            mostUrgent: result.mostUrgent,
+          });
+        }
         this.schedule(id, delay);
       } else if (outcome.type === "UsernameNotFound") {
+        // The Player is gone — drop their games so a later `304` can't re-emit them.
+        this.lastGames = undefined;
         this.onStatus?.({ kind: "notFound" });
         this.schedule(id, MIN_DELAY_MS);
       } else {

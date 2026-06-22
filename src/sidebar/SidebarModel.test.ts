@@ -1,7 +1,20 @@
 import assert from "node:assert/strict";
-import { from, EMPTY_BOARD_FEN, STARTING_FEN } from "./SidebarModel";
+import { from as fromModel, EMPTY_BOARD_FEN, STARTING_FEN } from "./SidebarModel";
+import { GLOW_FLOOR } from "./glow";
 import type { DailyGame } from "../poller/GamesParser";
 import type { PollStatus } from "../poller/Poller";
+
+// Fixed clock for deterministic glow. Non-glow tests rely on the default; glow
+// tests pass an explicit `now`. move_by is Unix seconds, so build it from NOW_S.
+const NOW = 1_700_000_000_000; // ms
+const NOW_S = NOW / 1000;
+/** `from` with `now` defaulted to NOW so the many non-glow tests stay terse. */
+const from = (
+  status: PollStatus | undefined,
+  usernameConfigured: boolean,
+  lastKnownGames: DailyGame[] | undefined,
+  now: number = NOW
+): ReturnType<typeof fromModel> => fromModel(status, usernameConfigured, lastKnownGames, now);
 
 /** Build a DailyGame with sensible defaults; override per test. */
 function game(overrides: Partial<DailyGame> = {}): DailyGame {
@@ -86,6 +99,90 @@ describe("SidebarModel.from()", () => {
     );
   });
 
+  // --- S1: oldest-first ordering by start_time within each group ---
+
+  /** An awaiting game (white to move, player white) with a start time + opponent. */
+  const awaitingAt = (startTime: number | undefined, opponent: string, url = opponent): DailyGame =>
+    game({ url: `https://www.chess.com/game/daily/${url}`, opponent, startTime });
+  /** A non-awaiting game (black to move, player white). */
+  const othersAt = (startTime: number | undefined, opponent: string, url = opponent): DailyGame =>
+    game({ url: `https://www.chess.com/game/daily/${url}`, opponent, startTime, turn: "black" });
+
+  it("O1: awaiting boards are ordered oldest start_time first", () => {
+    const model = from(
+      counted([awaitingAt(300, "c"), awaitingAt(100, "a"), awaitingAt(200, "b")]),
+      true,
+      undefined
+    );
+    assert.deepStrictEqual(
+      model.boards.map((b) => b.opponent),
+      ["a", "b", "c"]
+    );
+  });
+
+  it("O2: non-awaiting boards are ordered oldest start_time first", () => {
+    const model = from(
+      counted([othersAt(300, "c"), othersAt(100, "a"), othersAt(200, "b")]),
+      true,
+      undefined
+    );
+    assert.deepStrictEqual(
+      model.boards.map((b) => b.opponent),
+      ["a", "b", "c"]
+    );
+  });
+
+  it("O3: a missing start_time sorts to the end of its group (tie-broken by url)", () => {
+    const model = from(
+      counted([
+        awaitingAt(undefined, "z-undated", "z"),
+        awaitingAt(200, "dated"),
+        awaitingAt(undefined, "a-undated", "a"),
+      ]),
+      true,
+      undefined
+    );
+    assert.deepStrictEqual(
+      model.boards.map((b) => b.opponent),
+      ["dated", "a-undated", "z-undated"]
+    );
+  });
+
+  it("O4: equal start_time within a group falls back to url ascending", () => {
+    const model = from(counted([awaitingAt(100, "b"), awaitingAt(100, "a")]), true, undefined);
+    assert.deepStrictEqual(
+      model.boards.map((b) => b.opponent),
+      ["a", "b"]
+    );
+  });
+
+  it("SHIFT (proof #3): when a game ends, the survivors keep oldest-first order (lower boards shift up)", () => {
+    const all = from(
+      counted([awaitingAt(100, "g1"), awaitingAt(200, "g2"), awaitingAt(300, "g3")]),
+      true,
+      undefined
+    );
+    assert.deepStrictEqual(
+      all.boards.map((b) => b.opponent),
+      ["g1", "g2", "g3"]
+    );
+    // g2 ends → drops out; g3 moves up into g2's slot, order preserved.
+    const afterEnd = from(counted([awaitingAt(100, "g1"), awaitingAt(300, "g3")]), true, undefined);
+    assert.deepStrictEqual(
+      afterEnd.boards.map((b) => b.opponent),
+      ["g1", "g3"]
+    );
+  });
+
+  it("BOTTOM (proof #4): a newly-started game (newer start_time) sorts to the bottom of its group", () => {
+    const model = from(
+      counted([awaitingAt(100, "g1"), awaitingAt(200, "g2"), awaitingAt(300, "g3-new")]),
+      true,
+      undefined
+    );
+    assert.strictEqual(model.boards.at(-1)?.opponent, "g3-new");
+  });
+
   it("M6: no username → one empty-board placeholder + setup note", () => {
     const model = from(undefined, false, undefined);
     assert.strictEqual(model.boards.length, 1);
@@ -110,12 +207,15 @@ describe("SidebarModel.from()", () => {
     assert.strictEqual(model.note, undefined);
   });
 
-  it("M9: transient with last-known boards → those exact boards re-sent + retry note", () => {
-    const lastKnown: SidebarBoardFixture[] = [
-      { fen: "x", orientation: "white", opponent: "ada", awaiting: true, mostUrgent: true },
+  it("M9: transient rebuilds boards from the last-known games (fresh glow) + retry note", () => {
+    const lastKnownGames = [
+      game({ url: "https://www.chess.com/game/daily/ada", opponent: "ada", moveBy: NOW_S + 3600 }),
     ];
-    const model = from({ kind: "transient" }, true, lastKnown);
-    assert.deepStrictEqual(model.boards, lastKnown);
+    const model = from({ kind: "transient" }, true, lastKnownGames);
+    const board = model.boards.find((b) => b.opponent === "ada");
+    assert.ok(board, "the last-known game is rebuilt into a board");
+    assert.strictEqual(board.awaiting, true);
+    assert.ok(board.glow > 0, "glow is recomputed from the games, not a stale re-send");
     assert.strictEqual(model.note?.kind, "retry");
   });
 
@@ -126,52 +226,74 @@ describe("SidebarModel.from()", () => {
     assert.strictEqual(model.note?.kind, "retry");
   });
 
-  it("UG1: marks exactly the board whose url matches status.mostUrgent — by identity, not position", () => {
-    const alice = game({
-      url: "https://www.chess.com/game/daily/a",
-      opponent: "alice",
-      moveBy: 100,
+  // --- S2: Awaiting Glow intensity (replaces the former single-board most-urgent flag) ---
+
+  /** An awaiting game (white to move, player white) whose deadline is `hours` from NOW. */
+  const awaitingIn = (hours: number, opponent: string): DailyGame =>
+    game({
+      url: `https://www.chess.com/game/daily/${opponent}`,
+      opponent,
+      moveBy: NOW_S + hours * 3600,
     });
-    const bob = game({ url: "https://www.chess.com/game/daily/b", opponent: "bob", moveBy: 100 });
-    // Host designates `alice` as the Most Urgent Game; `moveBy` is tied (sort is
-    // ambiguous) and `alice` is NOT first in `games` — so only url identity can pick it.
-    const status: PollStatus = {
-      kind: "counted",
-      games: [bob, alice],
-      count: 2,
-      mostUrgent: alice,
-    };
-    const model = from(status, true, undefined);
-    const aliceBoard = model.boards.find((b) => b.opponent === "alice");
-    const bobBoard = model.boards.find((b) => b.opponent === "bob");
-    assert.strictEqual(aliceBoard?.mostUrgent, true);
-    assert.strictEqual(bobBoard?.mostUrgent, false);
-    assert.strictEqual(model.boards.filter((b) => b.mostUrgent).length, 1);
+
+  it("G1: an awaiting board with a near deadline carries glow > 0", () => {
+    const board = from(counted([awaitingIn(1, "ada")]), true, undefined).boards.find(
+      (b) => b.opponent === "ada"
+    );
+    assert.ok(board);
+    assert.ok(board.glow > 0, `expected glow > 0, got ${board.glow}`);
   });
 
-  it("UG2: a counted with no awaiting games (mostUrgent undefined) marks no board", () => {
-    const model = from(
-      counted([
-        game({ url: "https://www.chess.com/game/daily/1", turn: "black", opponent: "a" }), // not awaiting
-        game({ url: "https://www.chess.com/game/daily/2", turn: "black", opponent: "b" }), // not awaiting
-      ]),
+  it("G2: a non-awaiting board carries glow === 0 (proof #2, pure)", () => {
+    const board = from(
+      counted([game({ url: "https://www.chess.com/game/daily/x", opponent: "x", turn: "black" })]),
       true,
       undefined
-    );
-    assert.strictEqual(model.boards.filter((b) => b.mostUrgent).length, 0);
+    ).boards.find((b) => b.opponent === "x");
+    assert.ok(board);
+    assert.strictEqual(board.awaiting, false);
+    assert.strictEqual(board.glow, 0);
   });
 
-  it("UG3: every placeholder board carries mostUrgent: false", () => {
+  it("G3: every placeholder board carries glow === 0", () => {
     const placeholders = [
-      from(undefined, false, undefined), // no username (setup)
-      from({ kind: "notFound" }, true, undefined), // bad username (warning)
-      from(counted([]), true, undefined), // zero Daily Games (starting)
-      from(undefined, true, undefined), // configured, pre-first-poll (starting)
+      from(undefined, false, undefined), // setup
+      from({ kind: "notFound" }, true, undefined), // warning
+      from(counted([]), true, undefined), // zero games (starting)
+      from(undefined, true, undefined), // pre-first-poll (starting)
     ];
     for (const model of placeholders) {
       assert.strictEqual(model.boards.length, 1);
-      assert.strictEqual(model.boards[0]?.mostUrgent, false);
+      assert.strictEqual(model.boards[0]?.glow, 0);
     }
+  });
+
+  it("G4: among awaiting boards, the soonest move_by glows strongest", () => {
+    const model = from(counted([awaitingIn(1, "soon"), awaitingIn(10, "later")]), true, undefined);
+    const soon = model.boards.find((b) => b.opponent === "soon")!;
+    const later = model.boards.find((b) => b.opponent === "later")!;
+    assert.ok(soon.glow > later.glow, `${soon.glow} should exceed ${later.glow}`);
+  });
+
+  it("G5: awaiting games sharing the soonest move_by glow equally (derived-cue invariant)", () => {
+    const model = from(counted([awaitingIn(2, "a"), awaitingIn(2, "b")]), true, undefined);
+    const a = model.boards.find((b) => b.opponent === "a")!;
+    const b = model.boards.find((b) => b.opponent === "b")!;
+    assert.strictEqual(a.glow, b.glow);
+  });
+
+  it("G-FLOOR: an awaiting board past the ceiling glows at GLOW_FLOOR (still > 0)", () => {
+    const board = from(counted([awaitingIn(1000, "far")]), true, undefined).boards.find(
+      (b) => b.opponent === "far"
+    )!;
+    assert.strictEqual(board.glow, GLOW_FLOOR);
+    assert.ok(board.glow > 0);
+  });
+
+  it("G-DEGEN: all awaiting deadlines past the ceiling → every awaiting board glows equally at FLOOR", () => {
+    const model = from(counted([awaitingIn(200, "a"), awaitingIn(500, "b")]), true, undefined);
+    const glows = model.boards.filter((b) => b.awaiting).map((b) => b.glow);
+    assert.deepStrictEqual(glows, [GLOW_FLOOR, GLOW_FLOOR]);
   });
 
   it("TN1: counted with awaiting games → turnNotice mirrors the awaiting count", () => {
@@ -208,13 +330,13 @@ describe("SidebarModel.from()", () => {
     assert.strictEqual(from({ kind: "notFound" }, true, undefined).turnNotice, undefined);
   });
 
-  it("TN6: transient re-sends last-known awaiting boards → turnNotice keeps that count", () => {
-    const lastKnown: SidebarBoardFixture[] = [
-      { fen: "x", orientation: "white", opponent: "ada", awaiting: true, mostUrgent: true },
-      { fen: "y", orientation: "black", opponent: "bo", awaiting: true, mostUrgent: false },
-      { fen: "z", orientation: "white", opponent: "cy", awaiting: false, mostUrgent: false },
+  it("TN6: transient rebuilds last-known games → turnNotice keeps the awaiting count", () => {
+    const lastKnownGames = [
+      game({ url: "https://www.chess.com/game/daily/ada", opponent: "ada" }), // awaiting (w/w)
+      game({ url: "https://www.chess.com/game/daily/bo", opponent: "bo" }), // awaiting
+      game({ url: "https://www.chess.com/game/daily/cy", opponent: "cy", turn: "black" }), // not awaiting
     ];
-    const model = from({ kind: "transient" }, true, lastKnown);
+    const model = from({ kind: "transient" }, true, lastKnownGames);
     assert.strictEqual(model.turnNotice?.count, 2);
   });
 
@@ -249,12 +371,3 @@ describe("SidebarModel.from()", () => {
     assert.strictEqual("lastMove" in placeholder, false);
   });
 });
-
-// Local alias so the M9 fixture reads clearly without importing the contract type.
-type SidebarBoardFixture = {
-  fen: string;
-  orientation: "white" | "black";
-  opponent: string | null;
-  awaiting: boolean;
-  mostUrgent: boolean;
-};

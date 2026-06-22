@@ -15,6 +15,13 @@ export interface DailyGame {
    * never stored on the game (carry-light).
    */
   lastMove?: [string, string];
+  /**
+   * Game start time (Unix seconds) from the payload's `start_time` — drives the
+   * oldest-first Sidebar Board ordering. **Best-effort:** omitted (never
+   * `undefined`, mirroring `lastMove`) when the field is missing or non-numeric.
+   * Ordering is cosmetic, so a missing value never throws or fails a poll.
+   */
+  startTime?: number;
 }
 
 function urlTail(profileUrl: string): string {
@@ -154,6 +161,11 @@ export function parse(rawJson: unknown, configuredUsername: string): DailyGame[]
     };
     if (lastMove) {
       game.lastMove = lastMove;
+    }
+    // Best-effort: `start_time` drives ordering only, so a missing/non-numeric
+    // value is omitted (never thrown), exactly like a missing `pgn`/lastMove.
+    if (typeof g["start_time"] === "number") {
+      game.startTime = g["start_time"];
     }
     result.push(game);
   }

@@ -11,10 +11,10 @@ export interface CardPlan {
   label: string | null;
   fen: string;
   orientation: Orientation;
-  /** Drives the Awaiting Marker styling. */
+  /** Drives the Awaiting Glow presence (and bolds the label). */
   awaiting: boolean;
-  /** This is the Most Urgent Game's board — drives the Urgent Glow styling. */
-  urgent: boolean;
+  /** Awaiting Glow intensity ∈ [0, 1]; the webview maps it to the halo's CSS opacity. 0 = none. */
+  glow: number;
   /** [from, to] of the most recent move — drives the Move Trail. Omitted when absent. */
   lastMove?: [string, string];
 }
@@ -45,7 +45,7 @@ export function planRender(model: SidebarRenderModel): RenderPlan {
         fen: board.fen,
         orientation: board.orientation,
         awaiting: board.awaiting,
-        urgent: board.mostUrgent,
+        glow: board.glow,
       };
       // Conditional-omit, mirroring the board model: carry the Move Trail only
       // when present, so an absent trail is never `lastMove: undefined`.

@@ -32,14 +32,16 @@ export interface SidebarBoard {
   orientation: Orientation;
   /** Opponent label, or `null` for a placeholder board (no label). */
   opponent: string | null;
-  /** Host-derived: this Daily Game awaits the Player's move (drives the Awaiting Marker). */
+  /** Host-derived: this Daily Game awaits the Player's move (drives the Awaiting Glow + Turn Count). */
   awaiting: boolean;
   /**
-   * Host-derived: this board is the single Most Urgent Game (matched by `url`
-   * against the same game the Presence and Turn Notice open). Drives the Urgent
-   * Glow. At most one board in a model is `true`; placeholders are always `false`.
+   * Host-derived **Awaiting Glow** intensity in `[0, 1]`. An awaiting board carries
+   * `glowIntensity(move_by − now)` (∈ `[GLOW_FLOOR, 1]`, stronger as the deadline
+   * nears); a non-awaiting board and every placeholder carry `0`. The webview maps
+   * it to CSS opacity/strength only — it computes nothing. Replaces the former
+   * single-board most-urgent flag (ADR 0006).
    */
-  mostUrgent: boolean;
+  glow: number;
   /**
    * Host-derived [from, to] of the most recent move — drives the Move Trail.
    * Copied from the game; omitted (never `undefined`) when the game has no usable
