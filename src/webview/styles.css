@@ -130,15 +130,16 @@ body.vscode-dark .card--urgent {
 }
 
 /* The Move Trail — a calm, STATIC, warm tint on the last move's two squares,
-   overriding chessground's brown-theme last-move color. Primary is the active
-   theme's charts.orange (a warm decorative accent — Catppuccin "Peach" #ef9f76);
-   the #ffff00 fallback at 50% renders exactly Chess.com's last-move overlay
-   rgba(255, 255, 0, 0.5) on themes that don't define charts.orange. Warm and
-   deliberately distinct from the cool focusBorder Awaiting Marker / Urgent Glow;
-   informational, not urgency. This override holds only while ./styles.css stays
-   the LAST CSS import in main.ts (equal specificity, later source wins). */
+   overriding chessground's brown-theme last-move color. The hue is a FIXED warm
+   gold (#b58900): the earlier theme-bound charts.orange resolved to a muddy olive
+   over many themes' board squares, so the warm gold is now pinned rather than
+   theme-derived. At 50% it stays calm and lets the square and the pieces read
+   through. Deliberately distinct from the cool focusBorder Awaiting Marker /
+   Urgent Glow — now reliably so across every theme; informational, not urgency.
+   This override holds only while ./styles.css stays the LAST CSS import in
+   main.ts (equal specificity, later source wins). */
 cg-board square.last-move {
-  background: color-mix(in srgb, var(--vscode-charts-orange, #ffff00) 50%, transparent);
+  background: color-mix(in srgb, #b58900 50%, transparent);
 }
 
 /* The Board Theme — recolors the board SURFACE (the two square colors) only,

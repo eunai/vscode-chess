@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.1] - 2026-06-21
+
+### Changed
+
+- **Move Trail.** The last-move highlight is now a fixed warm gold rather than a theme-adaptive
+  tint, so it stays consistently warm and readable across every color theme.
+
 ## [0.8.0] - 2026-06-20
 
 ### Added
@@ -171,7 +178,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   urgent game in the browser.
 - GPL-3.0-or-later license.
 
-[Unreleased]: https://github.com/eunai/vscode-chess/compare/v0.8.0...HEAD
+[Unreleased]: https://github.com/eunai/vscode-chess/compare/v0.8.1...HEAD
+[0.8.1]: https://github.com/eunai/vscode-chess/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/eunai/vscode-chess/compare/v0.7.0...v0.8.0
 [0.7.0]: https://github.com/eunai/vscode-chess/compare/v0.6.0...v0.7.0
 [0.6.0]: https://github.com/eunai/vscode-chess/compare/v0.5.0...v0.6.0

@@ -6,8 +6,8 @@ A VS Code extension that monitors a single player's [Chess.com](https://www.ches
 Daily (correspondence) games and calmly signals when it is their turn to move, with a
 link to open the most urgent game in the browser.
 
-> **Status:** Active (`0.8.0`). This release adds the **Board Theme** — the board squares wear your
-> active VS Code color theme (the pieces are never recolored), so the board feels at home in your editor.
+> **Status:** Active (`0.8.1`). This patch pins the **Move Trail** last-move highlight to a fixed
+> warm gold, so it reads consistently across every color theme.
 
 ## Features
 
@@ -22,7 +22,7 @@ link to open the most urgent game in the browser.
 - **Urgent Glow** _(new in 0.6.0)_ — the board of your single most urgent Daily game carries a
   calm glow, layered on the awaiting marker, so the soonest-deadline game stands out at a glance.
 - **Move Trail** _(new in 0.7.0)_ — each board highlights the two squares of the most recent move
-  (where the last piece came from and where it landed) with a calm, theme-adaptive warm tint.
+  (where the last piece came from and where it landed) with a calm, warm tint.
 - **Board Theme** _(new in 0.8.0)_ — the board squares wear your active VS Code color theme, while the
   pieces stay unchanged; switch back to the classic board colors with `vscodeChess.boardTheme`.
 - **Always-visible signal** — a status-bar ♟ stays visible in every state, even when no
@@ -88,8 +88,8 @@ opens the most urgent game.
 
 ## ♟️ Roadmap
 
-`0.8.0` adds the **Board Theme** — the board squares wear your active VS Code color theme (the
-pieces are never recolored). Coming next:
+`0.8.1` pins the **Move Trail** last-move highlight to a fixed warm gold, consistent across every
+color theme. Coming next:
 
 - **Calm under failure** — polling that never blanks out on a network blip.
 
