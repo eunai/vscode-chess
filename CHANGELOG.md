@@ -7,6 +7,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.10.0] - 2026-06-26
+
+### Added
+
+- Click or keyboard-activate (Enter / Space) a board in the sidebar to act on it. A Daily-Game board
+  opens its game directly in the browser — every game, whether or not it is your move, and last-known
+  boards during a transient network failure stay activatable to the same game. When no username is
+  set, or the configured username is not found on Chess.com, the placeholder board instead opens VS
+  Code Settings focused on the username field — so you can set or fix it without leaving the sidebar.
+  The idle placeholder (a valid username with no games awaiting) and the reconnecting placeholder stay
+  calmly inert. Full keyboard and screen-reader parity: actionable boards are native buttons with
+  host-authored accessible names, reachable by Tab, and never receive a duplicate keydown handler;
+  inert placeholders are not focusable.
+
 ## [0.9.0] - 2026-06-22
 
 ### Changed
@@ -191,7 +205,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   urgent game in the browser.
 - GPL-3.0-or-later license.
 
-[Unreleased]: https://github.com/eunai/vscode-chess/compare/v0.9.0...HEAD
+[Unreleased]: https://github.com/eunai/vscode-chess/compare/v0.10.0...HEAD
+[0.10.0]: https://github.com/eunai/vscode-chess/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/eunai/vscode-chess/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/eunai/vscode-chess/compare/v0.8.0...v0.8.1
 [0.8.0]: https://github.com/eunai/vscode-chess/compare/v0.7.0...v0.8.0

@@ -17,7 +17,8 @@ export const BOARDS_VIEW_ID = "vscodeChess.boards";
 export class BoardsViewProvider implements vscode.WebviewViewProvider {
   constructor(
     private readonly extensionUri: vscode.Uri,
-    private readonly presenter: SidebarPresenter
+    private readonly presenter: SidebarPresenter,
+    private readonly onActivateBoard: (token: string) => Promise<void>
   ) {}
 
   resolveWebviewView(webviewView: vscode.WebviewView): void {
@@ -33,6 +34,7 @@ export class BoardsViewProvider implements vscode.WebviewViewProvider {
         ready: () => this.presenter.ready(),
         // Intent only — the host owns the open and the game URL.
         openMostUrgent: () => void vscode.commands.executeCommand(OPEN_MOST_URGENT_COMMAND),
+        activateBoard: (token) => void this.onActivateBoard(token),
       })
     );
     webviewView.onDidChangeVisibility(() => {

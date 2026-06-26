@@ -1,4 +1,5 @@
 import * as vscode from "vscode";
+import { createHmac, randomBytes } from "node:crypto";
 import { Poller } from "./poller/Poller";
 import type { PollStatus } from "./poller/Poller";
 import type { DailyGame } from "./poller/GamesParser";
@@ -6,6 +7,8 @@ import { Presence } from "./ui/Presence";
 import { from as toPresenceState } from "./turn/PresenceState";
 import { makeOpenMostUrgent, OPEN_MOST_URGENT_COMMAND } from "./commands/openMostUrgent";
 import type { OpenExternal } from "./commands/openMostUrgent";
+import { openGameUrl, type OpenUrl } from "./commands/openGameUrl";
+import type { TokenAuthority } from "./sidebar/TokenAuthority";
 import { readUsername, onUsernameChange } from "./config/username";
 import { readBoardTheme, onBoardThemeChange } from "./config/boardTheme";
 import { SidebarPresenter } from "./sidebar/SidebarPresenter";
@@ -36,7 +39,16 @@ export interface ChessExtensionApi {
   _getSidebarPresenterForTest(): SidebarPresenter;
   /** Override the clock the sidebar uses for the Awaiting Glow ramp (advance time across cycles). */
   _setNowForTest(fn: () => number): void;
+  /** Directly invoke the board-activation handler with an opaque token (integration seam). */
+  _simulateActivateBoardForTest(token: string): Promise<void>;
+  /** Override the open-Settings effect so a test observes it without opening the real Settings UI. */
+  _setOpenSettingsForTest(fn: (query: string) => Thenable<unknown>): void;
 }
+
+/** The Settings query the placeholder activation opens — focuses the username
+ * field, matching the Presence "Set Username" affordance (privacy: no username
+ * is interpolated into any URL). */
+const USERNAME_SETTING = "vscodeChess.username";
 
 export function activate(context: vscode.ExtensionContext): ChessExtensionApi {
   const logger = vscode.window.createOutputChannel("VS Code Chess", { log: true });
@@ -45,22 +57,49 @@ export function activate(context: vscode.ExtensionContext): ChessExtensionApi {
   // Injectable clock so the sidebar's Awaiting Glow recomputes from the current
   // time on every poll tick; the test API can advance it across cycles.
   let nowFn: () => number = () => Date.now();
-  const presenter = new SidebarPresenter(() => nowFn());
+  // Per-session HMAC secret: re-generated each activation so tokens from a
+  // prior session are automatically stale (ADR 0007).
+  const sessionSecret = randomBytes(32);
+  const authority: TokenAuthority = {
+    mint(identity: string): string {
+      return createHmac("sha256", sessionSecret).update(identity).digest("hex");
+    },
+  };
+  const presenter = new SidebarPresenter(() => nowFn(), authority);
   presenter.setBoardTheme(readBoardTheme());
   context.subscriptions.push(logger, presence);
-
-  context.subscriptions.push(
-    vscode.window.registerWebviewViewProvider(
-      BOARDS_VIEW_ID,
-      new BoardsViewProvider(context.extensionUri, presenter),
-      { webviewOptions: { retainContextWhenHidden: false } }
-    )
-  );
 
   // Mutable wiring seams. Default to the real platform surfaces; the test API
   // can swap them before a cycle runs.
   let fetchFn: FetchFn = (url, init) => fetch(url, init);
   let openExternal: OpenExternal = (target) => vscode.env.openExternal(target);
+  // String-based adapter; closes over the mutable `openExternal` so the test
+  // API's _setOpenExternalForTest swaps take effect on the next invocation.
+  const openUrl: OpenUrl = (url) => openExternal(vscode.Uri.parse(url));
+  // The open-Settings effect for a placeholder activation. Injectable so a test
+  // observes the query without opening the real Settings UI.
+  let openSettings: (query: string) => Thenable<unknown> = (query) =>
+    vscode.commands.executeCommand("workbench.action.openSettings", query);
+
+  async function onActivateBoard(token: string): Promise<void> {
+    const action = presenter.resolveToken(token);
+    if (action === undefined) return;
+    if (action.kind === "openUrl") {
+      await openGameUrl(action.url, openUrl, logger);
+    } else if (action.kind === "openSettings") {
+      // No URL, no username interpolation, no log line, no toast — just open the
+      // Settings UI focused on the username field (ADR 0007, DR5/DR7).
+      await openSettings(USERNAME_SETTING);
+    }
+  }
+
+  context.subscriptions.push(
+    vscode.window.registerWebviewViewProvider(
+      BOARDS_VIEW_ID,
+      new BoardsViewProvider(context.extensionUri, presenter, onActivateBoard),
+      { webviewOptions: { retainContextWhenHidden: false } }
+    )
+  );
 
   let lastStatus: PollStatus | undefined;
   let mostUrgent: DailyGame | undefined;
@@ -132,11 +171,7 @@ export function activate(context: vscode.ExtensionContext): ChessExtensionApi {
 
   const command = vscode.commands.registerCommand(
     COMMAND_ID,
-    makeOpenMostUrgent(
-      () => mostUrgent,
-      (target) => openExternal(target),
-      logger
-    )
+    makeOpenMostUrgent(() => mostUrgent, openUrl, logger)
   );
 
   const configListener = onUsernameChange(applyUsername);
@@ -188,6 +223,12 @@ export function activate(context: vscode.ExtensionContext): ChessExtensionApi {
     },
     _setNowForTest(fn) {
       nowFn = fn;
+    },
+    _simulateActivateBoardForTest(token) {
+      return onActivateBoard(token);
+    },
+    _setOpenSettingsForTest(fn) {
+      openSettings = fn;
     },
   };
 }

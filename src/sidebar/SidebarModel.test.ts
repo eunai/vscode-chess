@@ -3,6 +3,7 @@ import { from as fromModel, EMPTY_BOARD_FEN, STARTING_FEN } from "./SidebarModel
 import { GLOW_FLOOR } from "./glow";
 import type { DailyGame } from "../poller/GamesParser";
 import type { PollStatus } from "../poller/Poller";
+import type { ActionDescriptor } from "./boardActions";
 
 // Fixed clock for deterministic glow. Non-glow tests rely on the default; glow
 // tests pass an explicit `now`. move_by is Unix seconds, so build it from NOW_S.
@@ -13,8 +14,10 @@ const from = (
   status: PollStatus | undefined,
   usernameConfigured: boolean,
   lastKnownGames: DailyGame[] | undefined,
-  now: number = NOW
-): ReturnType<typeof fromModel> => fromModel(status, usernameConfigured, lastKnownGames, now);
+  now: number = NOW,
+  descriptors?: ReadonlyMap<string, ActionDescriptor>
+): ReturnType<typeof fromModel> =>
+  fromModel(status, usernameConfigured, lastKnownGames, now, descriptors);
 
 /** Build a DailyGame with sensible defaults; override per test. */
 function game(overrides: Partial<DailyGame> = {}): DailyGame {
@@ -342,6 +345,88 @@ describe("SidebarModel.from()", () => {
 
   it("TN7: transient with no last-known → no turnNotice", () => {
     assert.strictEqual(from({ kind: "transient" }, true, undefined).turnNotice, undefined);
+  });
+
+  // --- S2: action descriptor attachment ---
+
+  it("SM-ACT1: from() with a descriptor map attaches action to the matching game board", () => {
+    const g = game({ url: "https://www.chess.com/game/daily/42", opponent: "ada" });
+    const descriptors = new Map<string, ActionDescriptor>([
+      [g.url, { token: "tok-abc", label: "Open game vs ada" }],
+    ]);
+    const board = from(counted([g]), true, undefined, NOW, descriptors).boards.find(
+      (b) => b.opponent === "ada"
+    );
+    assert.ok(board, "board must be present");
+    assert.deepStrictEqual(board.action, { token: "tok-abc", label: "Open game vs ada" });
+  });
+
+  it("SM-ACT2: from() with no descriptor map — all boards have no action (backward-compat)", () => {
+    const g = game({ url: "https://www.chess.com/game/daily/1", opponent: "ada" });
+    const board = from(counted([g]), true, undefined).boards.find((b) => b.opponent === "ada");
+    assert.ok(board);
+    assert.strictEqual("action" in board, false, "no action field when no descriptors passed");
+  });
+
+  it("SM-ACT3: placeholder boards carry no action regardless of descriptor map", () => {
+    const descriptors = new Map<string, ActionDescriptor>([
+      ["https://www.chess.com/game/daily/1", { token: "tok", label: "Open game vs opp" }],
+    ]);
+    const placeholders = [
+      from(undefined, false, undefined, NOW, descriptors).boards[0], // setup empty
+      from({ kind: "notFound" }, true, undefined, NOW, descriptors).boards[0], // warning empty
+      from(counted([]), true, undefined, NOW, descriptors).boards[0], // zero-games starting
+    ];
+    for (const board of placeholders) {
+      assert.ok(board, "placeholder board must exist");
+      assert.strictEqual("action" in board, false, "placeholder must never carry action");
+    }
+  });
+
+  // --- S3: Settings-placeholder activation (the no-username and unknown-user
+  // placeholders become actionable; idle and transient-empty stay inert) ---
+
+  const settingsDesc = (token: string, label: string): ActionDescriptor => ({ token, label });
+
+  it("SM-SET-1: the no-username placeholder carries the no-username Settings action", () => {
+    const action = settingsDesc("tok-nu", "Open Settings to set your Chess.com username");
+    const model = fromModel(undefined, false, undefined, NOW, undefined, { noUsername: action });
+    assert.strictEqual(model.boards.length, 1);
+    assert.strictEqual(model.boards[0]?.fen, EMPTY_BOARD_FEN);
+    assert.deepStrictEqual(model.boards[0]?.action, { token: "tok-nu", label: action.label });
+    assert.strictEqual(model.note?.kind, "setup");
+  });
+
+  it("SM-SET-2: the unknown-user (notFound) placeholder carries the unknown-user Settings action", () => {
+    const action = settingsDesc("tok-uu", "Open Settings to fix your Chess.com username");
+    const model = fromModel({ kind: "notFound" }, true, undefined, NOW, undefined, {
+      unknownUser: action,
+    });
+    assert.strictEqual(model.boards.length, 1);
+    assert.deepStrictEqual(model.boards[0]?.action, { token: "tok-uu", label: action.label });
+    assert.strictEqual(model.note?.kind, "warning");
+  });
+
+  it("SM-SET-3: idle, fresh-start, and transient-empty placeholders stay inert even with Settings descriptors", () => {
+    const settings = {
+      noUsername: settingsDesc("tok-nu", "set"),
+      unknownUser: settingsDesc("tok-uu", "fix"),
+    };
+    const inert = [
+      fromModel(counted([]), true, undefined, NOW, undefined, settings).boards[0], // idle zero-games
+      fromModel(undefined, true, undefined, NOW, undefined, settings).boards[0], // configured, pre-first-poll
+      fromModel({ kind: "transient" }, true, undefined, NOW, undefined, settings).boards[0], // transient, no data
+    ];
+    for (const board of inert) {
+      assert.ok(board, "placeholder board must exist");
+      assert.strictEqual("action" in board, false, "an inert placeholder must carry no action");
+    }
+  });
+
+  it("SM-SET-4: the no-username placeholder without Settings descriptors carries no action (backward-compat)", () => {
+    const board = fromModel(undefined, false, undefined, NOW).boards[0];
+    assert.ok(board);
+    assert.strictEqual("action" in board, false, "no action when no Settings descriptors passed");
   });
 
   it("MT7: toBoard copies a game's lastMove; games and placeholders without one omit it", () => {

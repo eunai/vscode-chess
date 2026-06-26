@@ -1,6 +1,8 @@
 import type { PollStatus } from "../poller/Poller";
 import type { BoardTheme, RenderMessage } from "./contract";
 import { SidebarStore } from "./SidebarStore";
+import type { TokenAuthority } from "./TokenAuthority";
+import type { Action } from "./boardActions";
 
 /** The webview side the presenter posts render messages to. */
 export interface Poster {
@@ -27,8 +29,8 @@ export class SidebarPresenter {
    * Awaiting Glow recomputes from the current clock on every poll tick — including
    * a `304`-driven re-emit and a transient re-send. Tests pass a fake clock.
    */
-  constructor(now: () => number = () => Date.now()) {
-    this.store = new SidebarStore(now);
+  constructor(now: () => number = () => Date.now(), authority?: TokenAuthority) {
+    this.store = new SidebarStore(now, authority);
   }
 
   /** A webview view resolved — wire its post channel. */
@@ -54,6 +56,12 @@ export class SidebarPresenter {
     if (visible) {
       this.post();
     }
+  }
+
+  /** Resolve an activation token to an action. Fail-closed (undefined) when the
+   * token is unknown, stale, or forged (ADR 0007). */
+  resolveToken(token: string): Action | undefined {
+    return this.store.resolveToken(token);
   }
 
   /** A new poll status (or a reset): recompute and post only while visible. */

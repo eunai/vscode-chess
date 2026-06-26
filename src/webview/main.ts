@@ -1,13 +1,7 @@
 import { Chessground } from "chessground";
-import type { Config } from "chessground/config";
 import type { Key } from "chessground/types";
-import { planRender, type CardPlan, type NotePlan, type NoticePlan } from "./planRender";
-import type {
-  OpenMostUrgentMessage,
-  ReadyMessage,
-  RenderMessage,
-  SidebarRenderModel,
-} from "../sidebar/contract";
+import { makeMountFns, type ChessboardMount } from "./mount";
+import type { ReadyMessage, RenderMessage } from "../sidebar/contract";
 
 import "chessground/assets/chessground.base.css";
 import "chessground/assets/chessground.brown.css";
@@ -21,92 +15,18 @@ declare function acquireVsCodeApi(): VsCodeApi;
 
 const vscode = acquireVsCodeApi();
 
-function mountNote(parent: HTMLElement, note: NotePlan): void {
-  const el = document.createElement("div");
-  el.className = `note note--${note.kind}`;
-  el.textContent = note.text; // untrusted copy is host-authored, but never innerHTML
-  parent.appendChild(el);
-}
-
-function mountCard(parent: HTMLElement, card: CardPlan): void {
-  const cardEl = document.createElement("div");
-  const classes = ["card"];
-  if (card.awaiting) {
-    classes.push("card--awaiting");
-  }
-  cardEl.className = classes.join(" ");
-  // Awaiting Glow: the host-authored intensity → a CSS custom property the
-  // stylesheet maps to the halo's opacity. The webview computes nothing.
-  if (card.glow > 0) {
-    cardEl.style.setProperty("--glow", String(card.glow));
-  }
-
-  if (card.label !== null) {
-    const label = document.createElement("div");
-    label.className = "card__label";
-    label.textContent = card.label; // opponent label via textContent, never HTML
-    cardEl.appendChild(label);
-  }
-
-  const boardEl = document.createElement("div");
-  boardEl.className = "card__board";
-  cardEl.appendChild(boardEl);
-  parent.appendChild(cardEl);
-
-  const config: Config = {
-    fen: card.fen,
-    orientation: card.orientation,
+const mountChessboard: ChessboardMount = (el, fen, orientation, lastMove) => {
+  Chessground(el, {
+    fen,
+    orientation,
     viewOnly: true,
     coordinates: false,
-    // Chessground defaults highlight.lastMove to true; set it explicitly so the
-    // Move Trail can't silently vanish on a future chessground default change.
     highlight: { lastMove: true },
-  };
-  // The host derived [from, to]; the webview only hands it to chessground (the
-  // single cast site). Absent → no key set → no Move Trail painted.
-  if (card.lastMove) {
-    config.lastMove = card.lastMove as Key[];
-  }
-  Chessground(boardEl, config);
-}
-
-function mountNotice(parent: HTMLElement, notice: NoticePlan): void {
-  // A button so the whole bar is keyboard-activatable and focusable. Clicking
-  // posts intent only — the host owns the open and the game URL.
-  const el = document.createElement("button");
-  el.type = "button";
-  el.className = "notice";
-  const games = notice.count === 1 ? "game" : "games";
-  el.textContent = `♟ ${notice.count} ${games} · your move`;
-  el.addEventListener("click", () => {
-    const message: OpenMostUrgentMessage = { type: "openMostUrgent" };
-    vscode.postMessage(message);
+    ...(lastMove ? { lastMove: lastMove as Key[] } : {}),
   });
-  parent.appendChild(el);
-}
+};
 
-function render(root: HTMLElement, model: SidebarRenderModel): void {
-  const plan = planRender(model);
-  root.replaceChildren();
-
-  // Note + boards scroll; the Turn Notice is pinned to the bottom of the view.
-  const scroll = document.createElement("div");
-  scroll.className = "scroll";
-  if (plan.note !== null) {
-    mountNote(scroll, plan.note);
-  }
-  const boards = document.createElement("div");
-  boards.className = "boards";
-  for (const card of plan.cards) {
-    mountCard(boards, card);
-  }
-  scroll.appendChild(boards);
-  root.appendChild(scroll);
-
-  if (plan.notice !== null) {
-    mountNotice(root, plan.notice);
-  }
-}
+const { render } = makeMountFns((msg) => vscode.postMessage(msg), mountChessboard);
 
 function isRenderMessage(value: unknown): value is RenderMessage {
   return (
@@ -119,14 +39,10 @@ const root = document.getElementById("app") ?? document.body;
 window.addEventListener("message", (event: MessageEvent) => {
   const message: unknown = event.data;
   if (isRenderMessage(message)) {
-    // Host-authored Board Theme flag → a body attribute the CSS keys off. The
-    // webview only selects a CSS branch here; it computes no color. Squares only
-    // (ADR 0005) — the pieces are never touched.
     document.body.dataset.boardTheme = message.boardTheme;
     render(root, message.model);
   }
 });
 
-// Tell the host the listener is registered; it replies with the current model.
 const ready: ReadyMessage = { type: "ready" };
 vscode.postMessage(ready);

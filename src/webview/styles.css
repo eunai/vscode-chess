@@ -130,6 +130,21 @@ body.vscode-dark .card--awaiting {
   aspect-ratio: 1 / 1;
 }
 
+/* Actionable board: reset browser button defaults so the board looks identical
+   to the inert div case but gains pointer, keyboard, and focus-ring behaviour. */
+button.card__board {
+  cursor: pointer;
+  padding: 0;
+  border: none;
+  background: none;
+  display: block;
+  text-align: left;
+}
+button.card__board:focus-visible {
+  outline: 2px solid var(--vscode-focusBorder);
+  outline-offset: 2px;
+}
+
 /* The Move Trail — a calm, STATIC, warm tint on the last move's two squares,
    overriding chessground's brown-theme last-move color. The hue is a FIXED warm
    gold (#b58900): the earlier theme-bound charts.orange resolved to a muddy olive

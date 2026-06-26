@@ -6,8 +6,9 @@ A VS Code extension that monitors a single player's [Chess.com](https://www.ches
 Daily (correspondence) games and calmly signals when it is their turn to move, with a
 link to open the most urgent game in the browser.
 
-> **Status:** Active (`0.9.0`). Sidebar boards now hold a stable, oldest-first order, and a single
-> calm **Awaiting Glow** marks every game awaiting your move — deepening as its move deadline nears.
+> **Status:** Active (`0.10.0`). Click or keyboard-activate any board in the sidebar to open its
+> game in the browser; no-username and unknown-user placeholders open VS Code Settings at the
+> username field instead.
 
 ## Features
 
@@ -17,6 +18,12 @@ link to open the most urgent game in the browser.
   board for each ongoing Daily game, oriented to your color and labelled with your opponent.
   _(0.9.0)_ Boards hold a stable, oldest-first order — your longest-running game stays on top — and
   only move when a game ends or a new one begins; games awaiting your move group above the rest.
+- **Click any board to act** — click or keyboard-activate (Enter / Space) a board to open its
+  game in the browser; every game is activatable, even last-known boards during a transient
+  network failure. When no username is set, or the configured username is not found on Chess.com,
+  the placeholder board opens VS Code Settings at the username field instead. Idle and reconnecting
+  placeholders stay calmly inert. All actionable boards are native buttons with accessible names,
+  reachable by Tab, with full keyboard and screen-reader parity.
 - **Turn Notice** _(new in 0.5.0)_ — when it's your turn, a calm bar pinned to the bottom of
   the sidebar shows how many games await your move; click it to open the most urgent one. It
   mirrors the status-bar count and stays in sync, even while reconnecting.
@@ -40,6 +47,16 @@ link to open the most urgent game in the browser.
 
 Scope for 1.0 is **Daily games only**; Live formats (Blitz, Rapid, Bullet) are out of
 scope.
+
+## Accessibility
+
+- Actionable boards and setup placeholders are native VS Code webview buttons with
+  descriptive accessible names.
+- Keyboard users can Tab to every actionable board and activate it with Enter or Space.
+- Idle and reconnecting placeholders are skipped in the tab order, so focus never lands on a
+  dead board.
+- The focused board uses VS Code's focus color, including High Contrast themes.
+- The board activation flow was manually checked on Windows 11, Ubuntu, and macOS.
 
 ## Requirements
 
@@ -85,19 +102,22 @@ have a proof of life that the extension is running.
 
 Open the **Chess** view from the activity bar to see a live board for each of your Daily
 games — oriented to your color, in a stable oldest-first order with the games awaiting your move
-grouped on top. When it's your turn, a **Turn Notice** bar appears at the bottom of that view with
-the count; clicking it opens the most urgent game.
+grouped on top. Click or keyboard-activate (Enter / Space) any board to open that game in the
+browser. When it's your turn, a **Turn Notice** bar appears at the bottom of that view with the
+count; clicking it opens the most urgent game. Before you've set a username (or if Chess.com
+doesn't recognise it), the sidebar placeholder opens VS Code Settings at the username field —
+the same place as the Presence in the status bar.
 
 ## ♟️ Roadmap
 
-`0.9.0` gives the sidebar a stable oldest-first order and a single deadline-intensity **Awaiting
-Glow** on every game awaiting your move. Coming next:
+`0.10.0` makes every actionable sidebar board open the matching game or Settings target, with
+keyboard and screen-reader friendly controls. Coming next:
 
 - **Calm under failure** — polling that never blanks out on a network blip.
 
 Ideas being considered (not committed, order and details may shift):
 
-- **Click any game to open it** — open a game straight from its board in the sidebar.
+- Nothing queued yet.
 
 Early days. See the [changelog](CHANGELOG.md) for what's actually shipped.
 

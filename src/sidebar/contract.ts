@@ -48,6 +48,13 @@ export interface SidebarBoard {
    * `pgn`. Placeholder boards always omit it. The webview only renders it.
    */
   lastMove?: [string, string];
+  /**
+   * Host-authored activation descriptor. Present for actionable (Daily-Game)
+   * boards only; absent for inert placeholder boards (they are not focusable
+   * controls). The token is opaque — the webview echoes it back without decoding
+   * it. The label is the host-authored accessible name (e.g. "Open game vs opp").
+   */
+  action?: { token: string; label: string };
 }
 
 /** The single host-authored calm message at the top of the sidebar. */
@@ -100,5 +107,15 @@ export interface OpenMostUrgentMessage {
   type: "openMostUrgent";
 }
 
+/**
+ * webview → host: the user activated a Sidebar Board (click, Enter, or Space).
+ * Carries only the opaque token the host authored — no URL, no index, no game
+ * data. The host resolves the token to an action fail-closed (ADR 0007, DR5).
+ */
+export interface ActivateBoardMessage {
+  type: "activateBoard";
+  actionToken: string;
+}
+
 /** Every message the webview can post to the host. */
-export type WebviewMessage = ReadyMessage | OpenMostUrgentMessage;
+export type WebviewMessage = ReadyMessage | OpenMostUrgentMessage | ActivateBoardMessage;

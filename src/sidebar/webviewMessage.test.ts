@@ -4,11 +4,17 @@ import { onWebviewMessage } from "./webviewMessage";
 describe("onWebviewMessage()", () => {
   function spies() {
     const calls: string[] = [];
+    const tokens: string[] = [];
     return {
       calls,
+      tokens,
       handlers: {
         ready: () => calls.push("ready"),
         openMostUrgent: () => calls.push("openMostUrgent"),
+        activateBoard: (token: string) => {
+          calls.push("activateBoard");
+          tokens.push(token);
+        },
       },
     };
   }
@@ -32,5 +38,12 @@ describe("onWebviewMessage()", () => {
     onWebviewMessage("ready", handlers);
     onWebviewMessage(42, handlers);
     assert.deepStrictEqual(calls, []);
+  });
+
+  it("WM-AB: activateBoard message routes to the handler with the token", () => {
+    const { calls, tokens, handlers } = spies();
+    onWebviewMessage({ type: "activateBoard", actionToken: "token-abc" }, handlers);
+    assert.deepStrictEqual(calls, ["activateBoard"]);
+    assert.deepStrictEqual(tokens, ["token-abc"]);
   });
 });

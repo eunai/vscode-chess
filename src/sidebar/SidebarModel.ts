@@ -3,6 +3,7 @@ import type { PollStatus } from "../poller/Poller";
 import { byAgeThenUrl } from "../poller/dailyGameOrder";
 import { glowIntensity } from "./glow";
 import type { SidebarBoard, SidebarNote, SidebarRenderModel } from "./contract";
+import type { ActionDescriptor } from "./boardActions";
 
 /** Trusted host placeholder positions (never parsed from a payload). */
 export const EMPTY_BOARD_FEN = "8/8/8/8/8/8/8/8 w - - 0 1";
@@ -21,14 +22,30 @@ const RETRY_NOTE: SidebarNote = {
   text: "Reconnecting…",
 };
 
-function emptyPlaceholder(): SidebarBoard {
-  return {
+/**
+ * Settings-placeholder activation descriptors, one per host state that offers a
+ * fix. The no-username and unknown-user placeholders carry an action; the idle
+ * and transient-empty placeholders never do (they are inert, ADR 0007).
+ */
+export interface SettingsDescriptors {
+  noUsername?: ActionDescriptor;
+  unknownUser?: ActionDescriptor;
+}
+
+function emptyPlaceholder(action?: ActionDescriptor): SidebarBoard {
+  const board: SidebarBoard = {
     fen: EMPTY_BOARD_FEN,
     orientation: "white",
     opponent: null,
     awaiting: false,
     glow: 0,
   };
+  // Attach the activation descriptor only when one was provided — so an inert
+  // placeholder is structurally identical to one with no action.
+  if (action) {
+    board.action = { token: action.token, label: action.label };
+  }
+  return board;
 }
 
 function startingPlaceholder(): SidebarBoard {
@@ -51,7 +68,7 @@ function isAwaiting(game: DailyGame): boolean {
  * as its deadline nears); a non-awaiting game carries `0`. `now` (ms) is injected
  * so the pure model never reads the clock.
  */
-function toBoard(game: DailyGame, now: number): SidebarBoard {
+function toBoard(game: DailyGame, now: number, descriptor?: ActionDescriptor): SidebarBoard {
   const board: SidebarBoard = {
     fen: game.fen,
     orientation: game.playerColor,
@@ -64,6 +81,10 @@ function toBoard(game: DailyGame, now: number): SidebarBoard {
   if (game.lastMove) {
     board.lastMove = game.lastMove;
   }
+  // Attach the activation descriptor only when one was minted for this game.
+  if (descriptor) {
+    board.action = { token: descriptor.token, label: descriptor.label };
+  }
   return board;
 }
 
@@ -75,10 +96,14 @@ function toBoard(game: DailyGame, now: number): SidebarBoard {
  * bottom of its group) — calm, no churn. Each board's Awaiting Glow is computed
  * from `now`.
  */
-function orderBoards(games: DailyGame[], now: number): SidebarBoard[] {
+function orderBoards(
+  games: DailyGame[],
+  now: number,
+  descriptors: ReadonlyMap<string, ActionDescriptor>
+): SidebarBoard[] {
   const awaiting = games.filter(isAwaiting).sort(byAgeThenUrl);
   const others = games.filter((g) => !isAwaiting(g)).sort(byAgeThenUrl);
-  return [...awaiting, ...others].map((game) => toBoard(game, now));
+  return [...awaiting, ...others].map((game) => toBoard(game, now, descriptors.get(game.url)));
 }
 
 /**
@@ -94,10 +119,12 @@ function baseModel(
   status: PollStatus | undefined,
   usernameConfigured: boolean,
   lastKnownGames: DailyGame[] | undefined,
-  now: number
+  now: number,
+  descriptors: ReadonlyMap<string, ActionDescriptor>,
+  settingsDescriptors: SettingsDescriptors
 ): SidebarRenderModel {
   if (!usernameConfigured) {
-    return { boards: [emptyPlaceholder()], note: SETUP_NOTE };
+    return { boards: [emptyPlaceholder(settingsDescriptors.noUsername)], note: SETUP_NOTE };
   }
   if (status === undefined) {
     // Configured, before the first poll status arrives — calm idle placeholder.
@@ -107,9 +134,9 @@ function baseModel(
     case "counted":
       return status.games.length === 0
         ? { boards: [startingPlaceholder()] }
-        : { boards: orderBoards(status.games, now) };
+        : { boards: orderBoards(status.games, now, descriptors) };
     case "notFound":
-      return { boards: [emptyPlaceholder()], note: WARNING_NOTE };
+      return { boards: [emptyPlaceholder(settingsDescriptors.unknownUser)], note: WARNING_NOTE };
     case "transient": {
       // `undefined` last-known = no successful poll yet (or cleared by notFound /
       // username change) → empty placeholder. An empty array = a zero-games success
@@ -119,7 +146,9 @@ function baseModel(
         return { boards: [emptyPlaceholder()], note: RETRY_NOTE };
       }
       const boards =
-        lastKnownGames.length > 0 ? orderBoards(lastKnownGames, now) : [startingPlaceholder()];
+        lastKnownGames.length > 0
+          ? orderBoards(lastKnownGames, now, descriptors)
+          : [startingPlaceholder()];
       return { boards, note: RETRY_NOTE };
     }
   }
@@ -137,9 +166,18 @@ export function from(
   status: PollStatus | undefined,
   usernameConfigured: boolean,
   lastKnownGames: DailyGame[] | undefined,
-  now: number
+  now: number,
+  descriptors: ReadonlyMap<string, ActionDescriptor> = new Map(),
+  settingsDescriptors: SettingsDescriptors = {}
 ): SidebarRenderModel {
-  const model = baseModel(status, usernameConfigured, lastKnownGames, now);
+  const model = baseModel(
+    status,
+    usernameConfigured,
+    lastKnownGames,
+    now,
+    descriptors,
+    settingsDescriptors
+  );
   const count = model.boards.filter((board) => board.awaiting).length;
   return count > 0 ? { ...model, turnNotice: { count } } : model;
 }

@@ -4,6 +4,7 @@ import type { WebviewMessage } from "./contract";
 export interface WebviewMessageHandlers {
   ready: () => void;
   openMostUrgent: () => void;
+  activateBoard: (token: string) => void;
 }
 
 function isWebviewMessage(value: unknown): value is WebviewMessage {
@@ -30,6 +31,9 @@ export function onWebviewMessage(message: unknown, handlers: WebviewMessageHandl
       break;
     case "openMostUrgent":
       handlers.openMostUrgent();
+      break;
+    case "activateBoard":
+      handlers.activateBoard(message.actionToken);
       break;
   }
 }

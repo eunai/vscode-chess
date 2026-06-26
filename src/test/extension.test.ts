@@ -584,6 +584,183 @@ describe("vscode-chess extension (integration)", () => {
   //   only maps it to CSS).
   // -------------------------------------------------------------------------
 
+  // -------------------------------------------------------------------------
+  // INT-AB1 — board activation: a valid token → openExternal called with the
+  //   game URL (full host pipeline: poll → token mint → activate → open).
+  // -------------------------------------------------------------------------
+
+  it("INT-AB1: activating a valid board token opens the game URL via openExternal", async () => {
+    const posts: RenderMessage[] = [];
+    const presenter = api._getSidebarPresenterForTest();
+    presenter.attach({ postMessage: (message) => posts.push(message) });
+    presenter.ready();
+
+    const opened: string[] = [];
+    api._setOpenExternalForTest((uri) => {
+      opened.push(uri.toString());
+      return Promise.resolve(true);
+    });
+
+    api._setFetchForTest(fetchReturning(dailyPayload()));
+    await setUsername("playerone");
+    await api._pollOnceForTest();
+
+    const last = posts[posts.length - 1];
+    assert.ok(last, "host posted a render message");
+    const token = last.model.boards[0]?.action?.token;
+    assert.ok(token, "render carries an action token (authority is wired)");
+
+    await api._simulateActivateBoardForTest(token);
+    assert.deepEqual(opened, [MOST_URGENT_URL], "openExternal called with the game URL");
+  });
+
+  // -------------------------------------------------------------------------
+  // INT-AB2 — board activation: a token that resolves to a non-chess.com URL
+  //   is rejected by openGameUrl before openExternal is called.
+  // -------------------------------------------------------------------------
+
+  it("INT-AB2: activating a board token for a hostile URL does not call openExternal", async () => {
+    const posts: RenderMessage[] = [];
+    const presenter = api._getSidebarPresenterForTest();
+    presenter.attach({ postMessage: (message) => posts.push(message) });
+    presenter.ready();
+
+    const opened: string[] = [];
+    api._setOpenExternalForTest((uri) => {
+      opened.push(uri.toString());
+      return Promise.resolve(true);
+    });
+
+    const hostile = JSON.stringify({
+      games: [
+        {
+          url: "https://evil.example.com/phish",
+          move_by: 1_718_573_923,
+          turn: "white",
+          time_class: "daily",
+          white: "https://api.chess.com/pub/player/playerone",
+          black: "https://api.chess.com/pub/player/playertwo",
+          fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
+        },
+      ],
+    });
+    api._setFetchForTest(fetchReturning(hostile));
+    await setUsername("playerone");
+    await api._pollOnceForTest();
+
+    const last = posts[posts.length - 1];
+    assert.ok(last, "host posted a render message");
+    const token = last.model.boards[0]?.action?.token;
+    assert.ok(token, "render carries an action token");
+
+    await api._simulateActivateBoardForTest(token);
+    assert.equal(opened.length, 0, "hostile URL must not reach openExternal");
+  });
+
+  // -------------------------------------------------------------------------
+  // INT-AB3 — board activation: an unresolved (forged or stale) token is a
+  //   no-op — fail-closed, no call to openExternal (ADR 0007).
+  // -------------------------------------------------------------------------
+
+  it("INT-AB3: activating an unresolved (forged) token does not call openExternal", async () => {
+    const opened: string[] = [];
+    api._setOpenExternalForTest((uri) => {
+      opened.push(uri.toString());
+      return Promise.resolve(true);
+    });
+
+    await api._simulateActivateBoardForTest("forged-token-that-was-never-minted");
+    assert.equal(opened.length, 0, "unresolved token must not reach openExternal");
+  });
+
+  // -------------------------------------------------------------------------
+  // INT-SET1..4 — S3 placeholder → Settings activation. The no-username and
+  //   unknown-user placeholders open Settings at the username field; the idle
+  //   placeholder is inert; a forged token is a no-op (fail-closed, ADR 0007).
+  // -------------------------------------------------------------------------
+
+  it("INT-SET1: activating the no-username placeholder opens Settings at the username field", async () => {
+    const settingsQueries: string[] = [];
+    api._setOpenSettingsForTest((query) => {
+      settingsQueries.push(query);
+      return Promise.resolve(undefined);
+    });
+
+    // beforeEach left the username empty and restarted → no-username placeholder.
+    const posts: RenderMessage[] = [];
+    const presenter = api._getSidebarPresenterForTest();
+    presenter.attach({ postMessage: (m) => posts.push(m) });
+    presenter.ready();
+
+    const last = posts[posts.length - 1];
+    assert.ok(last, "host posted a render");
+    const token = last.model.boards[0]?.action?.token;
+    assert.ok(token, "the no-username placeholder carries a Settings action token");
+
+    await api._simulateActivateBoardForTest(token);
+    assert.deepEqual(settingsQueries, [USERNAME_KEY], "opens Settings at the username field");
+  });
+
+  it("INT-SET2: activating the unknown-user (404) placeholder opens Settings at the username field", async () => {
+    const settingsQueries: string[] = [];
+    api._setOpenSettingsForTest((query) => {
+      settingsQueries.push(query);
+      return Promise.resolve(undefined);
+    });
+
+    const posts: RenderMessage[] = [];
+    const presenter = api._getSidebarPresenterForTest();
+    presenter.attach({ postMessage: (m) => posts.push(m) });
+    presenter.ready();
+
+    api._setFetchForTest(fetchStatus(404));
+    await setUsername("nobody");
+    await api._pollOnceForTest();
+
+    const last = posts[posts.length - 1];
+    assert.ok(last, "host posted a render");
+    const token = last.model.boards[0]?.action?.token;
+    assert.ok(token, "the unknown-user placeholder carries a Settings action token");
+
+    await api._simulateActivateBoardForTest(token);
+    assert.deepEqual(settingsQueries, [USERNAME_KEY], "opens Settings at the username field");
+  });
+
+  it("INT-SET3: activating an unresolved (forged) token does not open Settings", async () => {
+    const settingsQueries: string[] = [];
+    api._setOpenSettingsForTest((query) => {
+      settingsQueries.push(query);
+      return Promise.resolve(undefined);
+    });
+
+    await api._simulateActivateBoardForTest("forged-settings-token-never-minted");
+    assert.equal(settingsQueries.length, 0, "unresolved token must not open Settings");
+  });
+
+  it("INT-SET4: the idle (zero-games) placeholder carries no action — nothing to activate", async () => {
+    const posts: RenderMessage[] = [];
+    const presenter = api._getSidebarPresenterForTest();
+    presenter.attach({ postMessage: (m) => posts.push(m) });
+    presenter.ready();
+
+    api._setFetchForTest(fetchReturning(JSON.stringify({ games: [] }))); // counted(0 games)
+    await setUsername("playerone");
+    await api._pollOnceForTest();
+
+    const last = posts[posts.length - 1];
+    assert.ok(last, "host posted a render");
+    assert.strictEqual(last.model.boards.length, 1, "one idle placeholder");
+    assert.strictEqual(
+      "action" in last.model.boards[0]!,
+      false,
+      "idle placeholder carries no action — nothing to activate"
+    );
+  });
+
+  // -------------------------------------------------------------------------
+  // BT3 — Board Theme flows end to end.
+  // -------------------------------------------------------------------------
+
   it("BT3: a counted poll posts a render whose boardTheme reflects the setting and flips on change", async () => {
     const posts: RenderMessage[] = [];
     const presenter = api._getSidebarPresenterForTest();

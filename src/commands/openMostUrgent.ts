@@ -1,42 +1,28 @@
-import * as vscode from "vscode";
+import type * as vscode from "vscode";
+import { openGameUrl, type OpenUrl } from "./openGameUrl";
 import type { DailyGame } from "../poller/GamesParser";
 
 /** The command both the Presence (count click) and the Turn Notice run to open
  * the Most Urgent Game. One shared open path keeps the two surfaces consistent. */
 export const OPEN_MOST_URGENT_COMMAND = "vscodeChess.openMostUrgent";
 
+/** vscode.Uri-based opener — the seam used by extension.ts and the integration
+ * test API. Kept here for extension.ts's `_setOpenExternalForTest` seam. */
 export type OpenExternal = (target: vscode.Uri) => Thenable<boolean>;
 
-/** Validate that a game URL points at a Chess.com game page before it is ever
- * handed to the browser. Crash-early on untrusted data (R3): only
- * `https://www.chess.com/...` URLs are accepted; anything else is rejected. */
-export function isChessComGameUrl(raw: string): boolean {
-  let url: URL;
-  try {
-    url = new URL(raw);
-  } catch {
-    return false;
-  }
-  return url.protocol === "https:" && url.hostname === "www.chess.com";
-}
-
 /** The `vscodeChess.openMostUrgent` handler. Opens the most-urgent Daily Game
- * in the browser after shape-validating its URL; a missing target or a
- * non-conforming URL is rejected, not opened. */
+ * in the browser via the shared `openGameUrl` helper (DR4). A missing target
+ * is a no-op; URL validation and rejection live in `openGameUrl`. */
 export function makeOpenMostUrgent(
   getMostUrgent: () => DailyGame | undefined,
-  openExternal: OpenExternal,
-  logger: vscode.LogOutputChannel
+  openUrl: OpenUrl,
+  logger: Pick<vscode.LogOutputChannel, "warn">
 ): () => Promise<void> {
   return async () => {
     const game = getMostUrgent();
     if (game === undefined) {
       return;
     }
-    if (!isChessComGameUrl(game.url)) {
-      logger.warn("openMostUrgent: rejected a non-chess.com game URL");
-      return;
-    }
-    await openExternal(vscode.Uri.parse(game.url));
+    await openGameUrl(game.url, openUrl, logger);
   };
 }

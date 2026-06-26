@@ -17,6 +17,8 @@ export interface CardPlan {
   glow: number;
   /** [from, to] of the most recent move — drives the Move Trail. Omitted when absent. */
   lastMove?: [string, string];
+  /** Host-authored activation descriptor. Present for actionable boards; absent for inert boards. */
+  action?: { token: string; label: string };
 }
 
 export interface NotePlan {
@@ -51,6 +53,9 @@ export function planRender(model: SidebarRenderModel): RenderPlan {
       // when present, so an absent trail is never `lastMove: undefined`.
       if (board.lastMove) {
         card.lastMove = board.lastMove;
+      }
+      if (board.action) {
+        card.action = board.action;
       }
       return card;
     }),

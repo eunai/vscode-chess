@@ -100,4 +100,34 @@ describe("planRender()", () => {
     assert.ok(second);
     assert.strictEqual("lastMove" in second, false);
   });
+
+  it("PR-ACT1: a board with action produces a card with the same action token and label", () => {
+    const action = { token: "tok-abc", label: "Open game vs ada" };
+    const plan = planRender({ boards: [board({ opponent: "ada", action })] });
+    assert.deepStrictEqual(plan.cards[0]?.action, action);
+  });
+
+  it("PR-ACT2: a board without action produces a card with no action field", () => {
+    const plan = planRender({ boards: [board({ opponent: "ada" })] });
+    const card = plan.cards[0];
+    assert.ok(card);
+    assert.strictEqual("action" in card, false, "no action field for inert board");
+  });
+
+  // --- S3: a Settings-placeholder board (opponent null) carries its action
+  // through to the card exactly like a game board; an inert placeholder omits it.
+
+  it("PR-SET1: a Settings placeholder (no opponent) carries its action token and label to the card", () => {
+    const action = { token: "tok-settings", label: "Open Settings to set your Chess.com username" };
+    const plan = planRender({ boards: [board({ opponent: null, action })] });
+    assert.strictEqual(plan.cards[0]?.label, null, "placeholder card has no opponent label");
+    assert.deepStrictEqual(plan.cards[0]?.action, action);
+  });
+
+  it("PR-SET2: an inert placeholder (no opponent, no action) produces a card with no action field", () => {
+    const plan = planRender({ boards: [board({ opponent: null })] });
+    const card = plan.cards[0];
+    assert.ok(card);
+    assert.strictEqual("action" in card, false, "inert placeholder card carries no action");
+  });
 });

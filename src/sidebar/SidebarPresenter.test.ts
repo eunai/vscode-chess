@@ -4,6 +4,18 @@ import { EMPTY_BOARD_FEN } from "./SidebarModel";
 import type { RenderMessage } from "./contract";
 import type { DailyGame } from "../poller/GamesParser";
 import type { PollStatus } from "../poller/Poller";
+import type { TokenAuthority } from "./TokenAuthority";
+
+function makeAuthority(): TokenAuthority {
+  const cache = new Map<string, string>();
+  let n = 0;
+  return {
+    mint: (id) => {
+      if (!cache.has(id)) cache.set(id, `tok-${n++}`);
+      return cache.get(id)!;
+    },
+  };
+}
 
 const awaitingGame: DailyGame = {
   fen: "rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1",
@@ -157,6 +169,27 @@ describe("SidebarPresenter", () => {
       "editor",
       "become-visible carries the latest boardTheme"
     );
+  });
+
+  it("SP-RT: resolveToken delegates to the store — same behavior as the store with the same games", () => {
+    const auth = makeAuthority();
+    const presenter = new SidebarPresenter(() => Date.now(), auth);
+    const poster = new FakePoster();
+    presenter.attach(poster);
+    presenter.ready();
+    presenter.update(counted([awaitingGame]), true);
+
+    const token = poster.last?.model.boards[0]?.action?.token;
+    assert.ok(token, "board must carry an action token");
+    const action = presenter.resolveToken(token);
+    assert.ok(action !== undefined, "resolveToken must return the action");
+    assert.strictEqual(action.kind, "openUrl");
+    assert.strictEqual(action.url, awaitingGame.url);
+
+    // Backward-compat: no authority → undefined
+    const presenterNoAuth = new SidebarPresenter();
+    presenterNoAuth.update(counted([awaitingGame]), true);
+    assert.strictEqual(presenterNoAuth.resolveToken("any"), undefined);
   });
 
   it("PR-ADV: identical games at an advancing now post a model whose awaiting glow rises (proof #1, render path)", () => {
