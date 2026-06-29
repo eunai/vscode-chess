@@ -30,6 +30,7 @@ const counted = (games: DailyGame[]): PollStatus => ({
   games,
   count: games.filter((g) => g.turn === g.playerColor).length,
   mostUrgent: undefined,
+  confirmedAt: 0,
 });
 
 describe("SidebarStore", () => {
@@ -52,7 +53,7 @@ describe("SidebarStore", () => {
   it("M12: notFound clears last-known; a following transient → empty placeholder + retry", () => {
     const store = new SidebarStore();
     store.update(counted([awaitingGame]), true); // last-known = real boards
-    store.update({ kind: "notFound" }, true); // must clear last-known
+    store.update({ kind: "notFound", confirmedAt: 0 }, true); // must clear last-known
     const model = store.update({ kind: "transient" }, true);
     assert.strictEqual(model.boards.length, 1);
     assert.strictEqual(model.boards[0]?.fen, EMPTY_BOARD_FEN, "no stale real board survives a 404");
@@ -85,6 +86,7 @@ describe("SidebarStore", () => {
       games: [bob, alice],
       count: 2,
       mostUrgent: alice,
+      confirmedAt: 0,
     };
 
     store.update(status, true);
@@ -169,7 +171,7 @@ describe("SidebarStore", () => {
     const model = store.update(counted([awaitingGame]), true);
     const token = model.boards[0]?.action?.token;
     assert.ok(token);
-    store.update({ kind: "notFound" }, true);
+    store.update({ kind: "notFound", confirmedAt: 0 }, true);
     assert.strictEqual(store.resolveToken(token), undefined);
   });
 
@@ -203,7 +205,7 @@ describe("SidebarStore", () => {
   it("SS-SET2: resolveToken after a notFound update returns the openSettings action", () => {
     const auth = makeAuthority();
     const store = new SidebarStore(() => Date.now(), auth);
-    const model = store.update({ kind: "notFound" }, true);
+    const model = store.update({ kind: "notFound", confirmedAt: 0 }, true);
     const token = model.boards[0]?.action?.token;
     assert.ok(token, "the unknown-user placeholder must carry a Settings action token");
     assert.strictEqual(store.resolveToken(token)?.kind, "openSettings");
@@ -214,7 +216,8 @@ describe("SidebarStore", () => {
     const store = new SidebarStore(() => Date.now(), auth);
     const noUserToken = store.update(undefined, false).boards[0]?.action?.token;
     assert.ok(noUserToken);
-    const unknownUserToken = store.update({ kind: "notFound" }, true).boards[0]?.action?.token;
+    const unknownUserToken = store.update({ kind: "notFound", confirmedAt: 0 }, true).boards[0]
+      ?.action?.token;
     assert.ok(unknownUserToken);
     assert.notStrictEqual(noUserToken, unknownUserToken, "distinct identities → distinct tokens");
     assert.strictEqual(
@@ -247,7 +250,7 @@ describe("SidebarStore", () => {
     // rule must NOT preserve a Settings token whose carrying board renders inert.
     const auth = makeAuthority();
     const store = new SidebarStore(() => Date.now(), auth);
-    const notFoundModel = store.update({ kind: "notFound" }, true);
+    const notFoundModel = store.update({ kind: "notFound", confirmedAt: 0 }, true);
     const token = notFoundModel.boards[0]?.action?.token;
     assert.ok(token, "notFound board carries a Settings action token");
     assert.strictEqual(store.resolveToken(token)?.kind, "openSettings");

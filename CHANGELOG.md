@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.11.0] - 2026-06-29
+
+### Changed
+
+- **The status-bar signal now shows how long you have.** When games await your move it reads
+  `♟ 3 · 1h 10m` — the move count plus the time left on the most urgent game (the one it opens when
+  clicked). Hover it to see the full count and when the games were last confirmed with Chess.com.
+- **Reconnecting is now visible.** While the extension is reconnecting, the status bar reads
+  `♟ Reconnecting...` instead of silently holding the last count, and its tooltip shows the
+  last-known games and how long ago they were confirmed — so you can tell at a glance when the data
+  may be aging.
+
 ## [0.10.0] - 2026-06-26
 
 ### Added
@@ -205,7 +217,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   urgent game in the browser.
 - GPL-3.0-or-later license.
 
-[Unreleased]: https://github.com/eunai/vscode-chess/compare/v0.10.0...HEAD
+[Unreleased]: https://github.com/eunai/vscode-chess/compare/v0.11.0...HEAD
+[0.11.0]: https://github.com/eunai/vscode-chess/compare/v0.10.0...v0.11.0
 [0.10.0]: https://github.com/eunai/vscode-chess/compare/v0.9.0...v0.10.0
 [0.9.0]: https://github.com/eunai/vscode-chess/compare/v0.8.1...v0.9.0
 [0.8.1]: https://github.com/eunai/vscode-chess/compare/v0.8.0...v0.8.1

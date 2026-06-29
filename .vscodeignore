@@ -12,6 +12,10 @@ out/**
 tsconfig*.json
 esbuild.js
 
+# --- local scratch / temp files ---
+tmp/
+temp/
+
 # --- tooling / config not needed at runtime ---
 eslint.config.mjs
 .prettierrc

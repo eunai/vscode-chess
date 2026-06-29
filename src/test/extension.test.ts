@@ -180,7 +180,7 @@ describe("vscode-chess extension (integration)", () => {
 
     presence = api._getPresenceForTest();
     assert.equal(presence.visible, true);
-    assert.equal(presence.text, "♟ 1");
+    assert.match(presence.text, /^♟ 1 · /, "count label is '♟ 1 · <deadline>'");
     assert.equal(presence.command, OPEN_MOST_URGENT);
 
     await vscode.commands.executeCommand(OPEN_MOST_URGENT);
@@ -203,11 +203,12 @@ describe("vscode-chess extension (integration)", () => {
   });
 
   // -------------------------------------------------------------------------
-  // W3 — a transient (5xx) status keeps the last-known label and command and
-  //      swaps only the tooltip to "Reconnecting...".
+  // W3 — a transient (5xx) status is now VISIBLE (ADR 0008): the label reads
+  //      "♟ Reconnecting..." with the last-known state disclosed in the tooltip
+  //      and the last-known open target retained.
   // -------------------------------------------------------------------------
 
-  it("W3: a transient (503) status keeps the last-known label and command, tooltip 'Reconnecting...'", async () => {
+  it("W3: a transient (503) status shows '♟ Reconnecting...' with last-known disclosure; click retained", async () => {
     const opened: string[] = [];
     api._setOpenExternalForTest((uri) => {
       opened.push(uri.toString());
@@ -218,17 +219,22 @@ describe("vscode-chess extension (integration)", () => {
     api._setFetchForTest(fetchReturning(dailyPayload()));
     await setUsername("playerone");
     await api._pollOnceForTest();
-    assert.equal(api._getPresenceForTest().text, "♟ 1");
+    assert.match(api._getPresenceForTest().text, /^♟ 1 · /);
 
-    // A transient failure must not blank or alarm: last-known display retained.
+    // A transient failure must not blank or alarm, but it IS now visible.
     api._setFetchForTest(fetchStatus(503));
     await api._pollOnceForTest();
 
     const presence = api._getPresenceForTest();
     assert.equal(presence.visible, true);
-    assert.equal(presence.text, "♟ 1", "last-known label retained");
-    assert.equal(presence.command, OPEN_MOST_URGENT, "last-known command retained");
-    assert.equal(presence.tooltip, "Reconnecting...");
+    assert.equal(presence.text, "♟ Reconnecting...");
+    assert.equal(presence.command, OPEN_MOST_URGENT, "last-known open target retained");
+    assert.ok(
+      typeof presence.tooltip === "string" &&
+        presence.tooltip.startsWith("Reconnecting... · ") &&
+        presence.tooltip.includes("last known: 1 game awaiting your move"),
+      "transient tooltip starts with 'Reconnecting... · ' and discloses 'last known: 1 game awaiting your move'"
+    );
 
     // The retained click target still opens the last-known Most Urgent Game.
     await vscode.commands.executeCommand(OPEN_MOST_URGENT);
@@ -244,7 +250,7 @@ describe("vscode-chess extension (integration)", () => {
     api._setFetchForTest(fetchReturning(dailyPayload()));
     await setUsername("playerone");
     await api._pollOnceForTest();
-    assert.equal(api._getPresenceForTest().text, "♟ 1");
+    assert.match(api._getPresenceForTest().text, /^♟ 1 · /);
 
     await setUsername("");
     // onDidChangeConfiguration is synchronous-ish; give the host a tick.
@@ -255,6 +261,29 @@ describe("vscode-chess extension (integration)", () => {
     assert.equal(presence.text, "♟ Set Username");
     assert.deepEqual(presence.command, OPEN_SETTINGS_COMMAND);
     assert.equal(api._isRunningForTest(), false, "the Poller is stopped");
+  });
+
+  // -------------------------------------------------------------------------
+  // W5 (#68) — a counted poll renders "♟ N · <deadline>" with a Freshness
+  //   tooltip. The deadline is the Most Urgent move_by remaining, computed at
+  //   render time from the injected clock (recompute-on-tick, no timer).
+  // -------------------------------------------------------------------------
+
+  it("W5: a counted poll renders '♟ N · <deadline>' with the Most Urgent deadline and a Freshness tooltip", async () => {
+    api._setNowForTest(() => NOW_MS);
+    api._setFetchForTest(fetchReturning(dailyPayload(NOW_S + 70 * 60))); // deadline 70 min from the fixed now
+    await setUsername("playerone");
+    await api._pollOnceForTest();
+
+    const presence = api._getPresenceForTest();
+    assert.equal(presence.text, "♟ 1 · 1h 10m", "count label carries the Most Urgent deadline");
+    assert.equal(presence.command, OPEN_MOST_URGENT);
+    assert.ok(
+      typeof presence.tooltip === "string" &&
+        presence.tooltip.includes("Most Urgent in 1h 10m") &&
+        presence.tooltip.includes("last confirmed"),
+      "count tooltip carries 'Most Urgent in 1h 10m' and a 'last confirmed' Freshness segment"
+    );
   });
 
   // -------------------------------------------------------------------------
@@ -325,7 +354,7 @@ describe("vscode-chess extension (integration)", () => {
     api._setFetchForTest(fetchReturning(dailyPayload()));
     await setUsername("playerone");
     await api._pollOnceForTest();
-    assert.equal(api._getPresenceForTest().text, "♟ 1");
+    assert.match(api._getPresenceForTest().text, /^♟ 1 · /);
 
     // Switch to Player B but never let B's first poll status return, so we can
     // observe the state strictly between the setting change and any new render.

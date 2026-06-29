@@ -37,7 +37,7 @@ function counted(games: DailyGame[]): PollStatus {
   const mostUrgent = awaiting.length
     ? awaiting.reduce((a, b) => (a.moveBy <= b.moveBy ? a : b))
     : undefined;
-  return { kind: "counted", games, count: awaiting.length, mostUrgent };
+  return { kind: "counted", games, count: awaiting.length, mostUrgent, confirmedAt: 0 };
 }
 
 describe("SidebarModel.from()", () => {
@@ -196,7 +196,7 @@ describe("SidebarModel.from()", () => {
   });
 
   it("M7: notFound → one empty-board placeholder + warning note", () => {
-    const model = from({ kind: "notFound" }, true, undefined);
+    const model = from({ kind: "notFound", confirmedAt: 0 }, true, undefined);
     assert.strictEqual(model.boards.length, 1);
     assert.strictEqual(model.boards[0]?.fen, EMPTY_BOARD_FEN);
     assert.strictEqual(model.note?.kind, "warning");
@@ -261,7 +261,7 @@ describe("SidebarModel.from()", () => {
   it("G3: every placeholder board carries glow === 0", () => {
     const placeholders = [
       from(undefined, false, undefined), // setup
-      from({ kind: "notFound" }, true, undefined), // warning
+      from({ kind: "notFound", confirmedAt: 0 }, true, undefined), // warning
       from(counted([]), true, undefined), // zero games (starting)
       from(undefined, true, undefined), // pre-first-poll (starting)
     ];
@@ -330,7 +330,10 @@ describe("SidebarModel.from()", () => {
   });
 
   it("TN5: notFound → no turnNotice", () => {
-    assert.strictEqual(from({ kind: "notFound" }, true, undefined).turnNotice, undefined);
+    assert.strictEqual(
+      from({ kind: "notFound", confirmedAt: 0 }, true, undefined).turnNotice,
+      undefined
+    );
   });
 
   it("TN6: transient rebuilds last-known games → turnNotice keeps the awaiting count", () => {
@@ -374,7 +377,7 @@ describe("SidebarModel.from()", () => {
     ]);
     const placeholders = [
       from(undefined, false, undefined, NOW, descriptors).boards[0], // setup empty
-      from({ kind: "notFound" }, true, undefined, NOW, descriptors).boards[0], // warning empty
+      from({ kind: "notFound", confirmedAt: 0 }, true, undefined, NOW, descriptors).boards[0], // warning empty
       from(counted([]), true, undefined, NOW, descriptors).boards[0], // zero-games starting
     ];
     for (const board of placeholders) {
@@ -399,7 +402,7 @@ describe("SidebarModel.from()", () => {
 
   it("SM-SET-2: the unknown-user (notFound) placeholder carries the unknown-user Settings action", () => {
     const action = settingsDesc("tok-uu", "Open Settings to fix your Chess.com username");
-    const model = fromModel({ kind: "notFound" }, true, undefined, NOW, undefined, {
+    const model = fromModel({ kind: "notFound", confirmedAt: 0 }, true, undefined, NOW, undefined, {
       unknownUser: action,
     });
     assert.strictEqual(model.boards.length, 1);

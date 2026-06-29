@@ -8,8 +8,15 @@ import type { DailyGame } from "./GamesParser";
 export type PollResult = TurnStateResult;
 
 export type PollStatus =
-  | { kind: "counted"; games: DailyGame[]; count: number; mostUrgent: DailyGame | undefined }
-  | { kind: "notFound" }
+  | {
+      kind: "counted";
+      games: DailyGame[];
+      count: number;
+      mostUrgent: DailyGame | undefined;
+      /** Time (ms epoch) this state was verified against Chess.com — a Confirmation. */
+      confirmedAt: number;
+    }
+  | { kind: "notFound"; confirmedAt: number }
   | { kind: "transient" };
 
 const MIN_DELAY_MS = 60_000;
@@ -23,6 +30,8 @@ interface Logger {
 interface Clock {
   setTimeout(fn: () => void, delay: number): number;
   clearTimeout(id: number): void;
+  /** Wall-clock now (ms epoch); used to stamp a Confirmation's `confirmedAt`. */
+  now(): number;
 }
 
 interface PollerOptions {
@@ -37,6 +46,7 @@ interface PollerOptions {
 const defaultClock: Clock = {
   setTimeout: (fn, d) => +globalThis.setTimeout(fn, d),
   clearTimeout: (id) => globalThis.clearTimeout(id),
+  now: () => Date.now(),
 };
 
 export class Poller {
@@ -116,6 +126,7 @@ export class Poller {
           games,
           count: result.count,
           mostUrgent: result.mostUrgent,
+          confirmedAt: this.clock.now(),
         });
         this.schedule(id, delay);
       } else if (outcome.type === "unchanged") {
@@ -134,13 +145,14 @@ export class Poller {
             games: this.lastGames,
             count: result.count,
             mostUrgent: result.mostUrgent,
+            confirmedAt: this.clock.now(),
           });
         }
         this.schedule(id, delay);
       } else if (outcome.type === "UsernameNotFound") {
         // The Player is gone — drop their games so a later `304` can't re-emit them.
         this.lastGames = undefined;
-        this.onStatus?.({ kind: "notFound" });
+        this.onStatus?.({ kind: "notFound", confirmedAt: this.clock.now() });
         this.schedule(id, MIN_DELAY_MS);
       } else {
         // outcome.type === "TransientError"

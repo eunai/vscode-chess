@@ -30,14 +30,21 @@ export class Presence {
 
   render(state: PresenceState): void {
     switch (state.kind) {
-      case "count":
-        this.item.text = `♟ ${state.count}`;
-        this.item.tooltip = `${state.count} Daily ${state.count === 1 ? "game" : "games"} awaiting your move`;
+      case "count": {
+        const games = state.count === 1 ? "game" : "games";
+        this.item.text = state.deadlineText
+          ? `♟ ${state.count} · ${state.deadlineText}`
+          : `♟ ${state.count}`;
+        this.item.tooltip =
+          `${state.count} Daily ${games} awaiting your move` +
+          (state.deadlineText ? ` · Most Urgent in ${state.deadlineText}` : "") +
+          ` · ${state.freshnessText}`;
         this.item.command = this.openMostUrgentCommand;
         break;
+      }
       case "idle":
         this.item.text = "♟";
-        this.item.tooltip = "VS Code Chess — no games awaiting your move";
+        this.item.tooltip = `No Daily games awaiting your move · ${state.freshnessText}`;
         this.item.command = undefined;
         break;
       case "unconfigured":
@@ -50,12 +57,20 @@ export class Presence {
         this.item.tooltip = "VS Code Chess — Chess.com user not found; check your username";
         this.item.command = SETTINGS_COMMAND;
         break;
-      case "transient":
-        // Calm under failure: keep the last non-transient label and command —
-        // intentionally left untouched here so they persist — and disclose the
-        // reconnect only through the tooltip.
-        this.item.tooltip = "Reconnecting...";
+      case "transient": {
+        // Visible reconnecting (ADR 0008): the label reads as reconnecting and
+        // the tooltip discloses the aging Freshness plus the last-known state.
+        // The last-known open target stays one click away when there was one.
+        const lk = state.lastKnown;
+        this.item.text = "♟ Reconnecting...";
+        this.item.tooltip =
+          `Reconnecting... · ${state.freshnessText}` +
+          (lk
+            ? ` · last known: ${lk.count} ${lk.count === 1 ? "game" : "games"} awaiting your move · Most Urgent in ${lk.deadlineText}`
+            : "");
+        this.item.command = lk ? this.openMostUrgentCommand : undefined;
         break;
+      }
     }
   }
 

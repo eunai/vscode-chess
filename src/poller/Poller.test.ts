@@ -17,6 +17,12 @@ type TimerCallback = () => void;
 class FakeClock {
   readonly pending: Array<{ delay: number; fn: TimerCallback; id: number }> = [];
   private nextId = 1;
+  /** Settable wall-clock used to stamp Confirmations (`confirmedAt`). */
+  nowValue = 1_000_000;
+
+  now(): number {
+    return this.nowValue;
+  }
 
   setTimeout(fn: TimerCallback, delay: number): number {
     const id = this.nextId++;
@@ -1194,6 +1200,160 @@ describe("Poller", () => {
       "the trailing 304 emits nothing — no stale counted for a Player who 404'd"
     );
 
+    poller.stop();
+  });
+
+  // -------------------------------------------------------------------------
+  // S1 (#68) — Confirmation timestamp (confirmedAt) on non-transient outcomes.
+  // (CF3 — a 304 before any 200 emits nothing — is covered by PK2 above.)
+  // -------------------------------------------------------------------------
+
+  it("CF1: a 200 stamps confirmedAt = clock.now() on the counted status", async () => {
+    const clock = new FakeClock();
+    clock.nowValue = 5_000_000;
+    const fetchFn = (): Promise<Response> =>
+      Promise.resolve(
+        new Response(onePlayeroneGame, { status: 200, headers: { "Cache-Control": "max-age=60" } })
+      );
+    const statuses: PollStatus[] = [];
+    const poller = new Poller({
+      username: "playerone",
+      fetchFn,
+      onResult: () => undefined,
+      onStatus: (s) => statuses.push(s),
+      logger: makeLogger(),
+      clock,
+    });
+    poller.start();
+    await flush();
+    const s = statuses[0];
+    assert.ok(s?.kind === "counted");
+    if (s.kind === "counted") {
+      assert.strictEqual(s.confirmedAt, 5_000_000, "200 stamps confirmedAt = clock.now()");
+    }
+    poller.stop();
+  });
+
+  it("CF2: a 304 after a prior 200 re-stamps confirmedAt with the current clock.now()", async () => {
+    const clock = new FakeClock();
+    clock.nowValue = 1_000;
+    let callCount = 0;
+    const fetchFn = (): Promise<Response> => {
+      callCount++;
+      if (callCount === 1) {
+        return Promise.resolve(
+          new Response(onePlayeroneGame, {
+            status: 200,
+            headers: { ETag: '"e1"', "Cache-Control": "max-age=60" },
+          })
+        );
+      }
+      return Promise.resolve(
+        new Response(null, { status: 304, headers: { "Cache-Control": "max-age=60" } })
+      );
+    };
+    const statuses: PollStatus[] = [];
+    const poller = new Poller({
+      username: "playerone",
+      fetchFn,
+      onResult: () => undefined,
+      onStatus: (s) => statuses.push(s),
+      logger: makeLogger(),
+      clock,
+    });
+    poller.start();
+    await flush();
+    clock.nowValue = 2_000; // time advances before the 304 cycle
+    clock.tick();
+    await flush();
+    const first = statuses[0];
+    const second = statuses[1];
+    assert.ok(first?.kind === "counted" && second?.kind === "counted");
+    if (first.kind === "counted" && second.kind === "counted") {
+      assert.strictEqual(first.confirmedAt, 1_000, "200 stamps the initial time");
+      assert.strictEqual(second.confirmedAt, 2_000, "304 re-stamps with the advanced time");
+    }
+    poller.stop();
+  });
+
+  it("CF4: a 404 stamps confirmedAt on the notFound status (a Confirmation for #67)", async () => {
+    const clock = new FakeClock();
+    clock.nowValue = 7_777;
+    const fetchFn = (): Promise<Response> => Promise.resolve(new Response(null, { status: 404 }));
+    const statuses: PollStatus[] = [];
+    const poller = new Poller({
+      username: "nobody",
+      fetchFn,
+      onResult: () => undefined,
+      onStatus: (s) => statuses.push(s),
+      logger: makeLogger(),
+      clock,
+    });
+    poller.start();
+    await flush();
+    const s = statuses[0];
+    assert.ok(s?.kind === "notFound");
+    if (s.kind === "notFound") {
+      assert.strictEqual(
+        s.confirmedAt,
+        7_777,
+        "404 stamps confirmedAt — notFound is a Confirmation"
+      );
+    }
+    poller.stop();
+  });
+
+  it("CF5: a transient (503) carries no confirmedAt — the prior Confirmation stands", async () => {
+    const clock = new FakeClock();
+    const fetchFn = (): Promise<Response> => Promise.resolve(new Response(null, { status: 503 }));
+    const statuses: PollStatus[] = [];
+    const poller = new Poller({
+      username: "playerone",
+      fetchFn,
+      onResult: () => undefined,
+      onStatus: (s) => statuses.push(s),
+      logger: makeLogger(),
+      clock,
+    });
+    poller.start();
+    await flush();
+    const s = statuses[0];
+    assert.strictEqual(s?.kind, "transient");
+    assert.strictEqual(
+      (s as { confirmedAt?: number }).confirmedAt,
+      undefined,
+      "transient carries no confirmedAt"
+    );
+    poller.stop();
+  });
+
+  it("CF6: a malformed 200 (reclassified transient) stamps no confirmedAt", async () => {
+    const clock = new FakeClock();
+    const fetchFn = (): Promise<Response> =>
+      Promise.resolve(
+        new Response("not json {{{", {
+          status: 200,
+          headers: { ETag: '"e"', "Cache-Control": "max-age=60" },
+        })
+      );
+    const statuses: PollStatus[] = [];
+    const poller = new Poller({
+      username: "playerone",
+      fetchFn,
+      onResult: () => undefined,
+      onStatus: (s) => statuses.push(s),
+      logger: makeLogger(),
+      clock,
+    });
+    poller.start();
+    await flush();
+    const s = statuses[0];
+    assert.strictEqual(s?.kind, "transient", "malformed 200 → transient");
+    assert.strictEqual(
+      (s as { confirmedAt?: number }).confirmedAt,
+      undefined,
+      "no confirmedAt on a transient-classified malformed 200"
+    );
     poller.stop();
   });
 });

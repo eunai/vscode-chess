@@ -4,7 +4,7 @@ import { Poller } from "./poller/Poller";
 import type { PollStatus } from "./poller/Poller";
 import type { DailyGame } from "./poller/GamesParser";
 import { Presence } from "./ui/Presence";
-import { from as toPresenceState } from "./turn/PresenceState";
+import { from as toPresenceState, type LastKnownTurnSummary } from "./turn/PresenceState";
 import { makeOpenMostUrgent, OPEN_MOST_URGENT_COMMAND } from "./commands/openMostUrgent";
 import type { OpenExternal } from "./commands/openMostUrgent";
 import { openGameUrl, type OpenUrl } from "./commands/openGameUrl";
@@ -103,6 +103,10 @@ export function activate(context: vscode.ExtensionContext): ChessExtensionApi {
 
   let lastStatus: PollStatus | undefined;
   let mostUrgent: DailyGame | undefined;
+  // The last `counted` poll's turn summary (count + Most Urgent + its
+  // confirmedAt) — the render cache the count/transient Presence reads. Kept
+  // across a transient; cleared on notFound / username change.
+  let lastKnownTurnSummary: LastKnownTurnSummary | undefined;
   let poller: Poller | undefined;
 
   // Resolvers awaiting the next emitted PollStatus (test seam only).
@@ -112,7 +116,9 @@ export function activate(context: vscode.ExtensionContext): ChessExtensionApi {
    * current username config. One classification in, one PresenceState out — the
    * Presence renders, never re-derives. */
   function render(): void {
-    presence.render(toPresenceState(lastStatus, readUsername() !== ""));
+    presence.render(
+      toPresenceState(lastStatus, readUsername() !== "", lastKnownTurnSummary, nowFn())
+    );
   }
 
   function handleStatus(status: PollStatus): void {
@@ -122,8 +128,14 @@ export function activate(context: vscode.ExtensionContext): ChessExtensionApi {
     // last-known label + command); notFound has no target.
     if (status.kind === "counted") {
       mostUrgent = status.count > 0 ? status.mostUrgent : undefined;
+      lastKnownTurnSummary = {
+        count: status.count,
+        mostUrgent: status.mostUrgent,
+        confirmedAt: status.confirmedAt,
+      };
     } else if (status.kind === "notFound") {
       mostUrgent = undefined;
+      lastKnownTurnSummary = undefined;
     }
     render();
     presenter.update(status, readUsername() !== "");
@@ -160,6 +172,7 @@ export function activate(context: vscode.ExtensionContext): ChessExtensionApi {
     stopPoller();
     lastStatus = undefined;
     mostUrgent = undefined;
+    lastKnownTurnSummary = undefined;
     render();
     // Reset the sidebar to the configured Player's placeholder; the old
     // Player's boards never carry over (the store clears last-known).

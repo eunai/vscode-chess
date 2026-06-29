@@ -36,6 +36,7 @@ const counted = (games: DailyGame[]): PollStatus => ({
   games,
   count: games.filter((g) => g.turn === g.playerColor).length,
   mostUrgent: undefined,
+  confirmedAt: 0,
 });
 
 /** Records every render message the host posts to the webview. */
@@ -129,7 +130,7 @@ describe("SidebarPresenter", () => {
     presenter.attach(poster);
     presenter.ready();
     presenter.update(counted([awaitingGame]), true); // real boards
-    presenter.update({ kind: "notFound" }, true); // clears last-known
+    presenter.update({ kind: "notFound", confirmedAt: 0 }, true); // clears last-known
 
     presenter.update({ kind: "transient" }, true);
 
